@@ -1196,11 +1196,16 @@ code {
 
 /* ====================== 13. АДАПТИВНОСТЬ ====================== */
 
+/* Мобильная строка .m-search существует в DOM всегда (создаёт JS) —
+   на десктопе полностью скрыта, иначе виден «двойной поиск». */
+.m-search { display: none !important; }
+
 @media (max-width: 1024px) {
   .layout { grid-template-columns: 250px 1fr; gap: 16px; }
 }
 
 @media (max-width: 800px) {
+  .m-search { display: flex !important; }   /* включается только на мобиле */
   .site-header { margin: 8px 8px 0; }
   /* ОДНА строка: всё в ряд, ничего не переносится */
   .header-inner { flex-wrap: nowrap; gap: 8px; padding: 6px 10px; overflow: hidden; }
