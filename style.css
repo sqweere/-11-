@@ -306,11 +306,82 @@
   transition: background 0.6s ease;
 }
 
+/* ====================== 5b. СКРОЛЛБАРЫ (liquid glass) ======================
+   Премиальный скроллбар в стиле сайта: тонкий «стеклянный» трек,
+   тёплая деревянная ручка с мягким свечением при hover.
+   Firefox: scrollbar-color/width (тонкий); Chrome/Safari: webkit + overlay.
+   Токены: --sb-w (ширина), --sb-thumb (цвет ручки), --sb-thumb-hover. */
+
+:root {
+  --sb-w: 10px;                       /* ширина полосы */
+  --sb-thumb: rgba(217, 185, 127, 0.35);   /* тёплое дерево (из тёмной темы) */
+  --sb-thumb-hover: rgba(217, 185, 127, 0.65);
+  --sb-track: transparent;                 /* стеклянный трек — невидим */
+  --sb-radius: 999px;
+}
+[data-theme="light"] {
+  --sb-thumb: rgba(110, 83, 52, 0.38);      /* тёмная бронза на кости */
+  --sb-thumb-hover: rgba(110, 83, 52, 0.6);
+}
+
+/* Firefox: современный тонкий скроллбар */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sb-thumb) var(--sb-track);
+}
+
+/* Chrome / Edge / Safari: стеклянная капсула */
+::-webkit-scrollbar {
+  width: var(--sb-w);
+  height: var(--sb-w);
+}
+::-webkit-scrollbar-track {
+  background: var(--sb-track);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--sb-thumb);
+  border-radius: var(--sb-radius);
+  /* «стеклянная» ручка: внутренний блик + мягкая тень */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--sb-thumb-hover);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 0 10px var(--sb-thumb);
+}
+::-webkit-scrollbar-thumb:active {
+  background: var(--sb-thumb-hover);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 0 14px var(--sb-thumb);
+}
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* Тонкие внутренние скроллы (сайдбар, презентация, карта): уже и деликатнее */
+#toc-list, .pres-slide, .map-wrap, .search-results, .modal-body {
+  scrollbar-width: thin;
+}
+#toc-list::-webkit-scrollbar, .pres-slide::-webkit-scrollbar,
+.map-wrap::-webkit-scrollbar, .search-results::-webkit-scrollbar,
+.modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+#toc-list::-webkit-scrollbar-thumb, .pres-slide::-webkit-scrollbar-thumb,
+.map-wrap::-webkit-scrollbar-thumb, .search-results::-webkit-scrollbar-thumb,
+.modal-body::-webkit-scrollbar-thumb {
+  border: 1px solid transparent;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
 /* ====================== 5. БАЗА ====================== */
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { scroll-behavior: smooth; }
+
+/* Якорные переходы: шапка не перекрывает цель — отступ сверху
+   с запасом на сжатую шапку (~70px) и её «воздух» */
+[id] { scroll-margin-top: 84px; }
 
 body {
   font-family: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -346,15 +417,115 @@ code {
 
 /* ====================== 6. ШАПКА ====================== */
 
-/* Парящая капсула: большие закругления + воздух от краёв окна */
+/* Парящая капсула: большие закругления + воздух от краёв окна.
+   УЕЗЖАЮЩАЯ: при скролле вниз прячется (translateY вверх + прозрачность),
+   при скролле вверх возвращается; при >порога скролла СЖИМАЕТСЯ по высоте
+   (компактнее паддинги/шрифт/книга), но длина (ширина) не меняется.
+   Пороги/высоты — в переменных ниже. */
 .site-header {
+  /* — параметры уезда/сжатия (легко править) — */
+  --hd-hide-y: -140%;              /* заезд за экран (полностью + запас) */
+  --hd-compact-at: 110px;          /* порог сжатия по скроллу */
+  --hd-shift: 8px;                 /* смещение, с которого начинается уезд */
+  --hd-hyst: 14px;                 /* hysteresis: защита от дёрганья на границе */
+  --hd-t: 0.45s;                   /* тайминг уезда/возврата */
+
   position: sticky; top: 14px; z-index: 50;
   margin: 14px 18px 0;
-  border-radius: 28px;                       /* выраженное скругление */
+  border-radius: 28px;
   box-shadow:
     var(--glass-shadow),
     inset 0 1px 0 0 var(--glass-sheen),
     0 2px 10px rgba(20, 12, 4, 0.12);
+  /* уезд: только transform/opacity/filter — без layout shift */
+  transition:
+    transform var(--hd-t) var(--ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    opacity 0.35s ease,
+    margin 0.45s var(--ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    box-shadow 0.45s ease,
+    border-radius 0.45s var(--ease, cubic-bezier(0.22, 1, 0.36, 1));
+  will-change: transform, opacity;
+}
+
+/* — СКРЫТА: уехала за экран. Только transform/opacity/visibility. — */
+.site-header.hd-hide {
+  transform: translateY(var(--hd-hide-y)) scale(0.97);
+  opacity: 0;
+  visibility: hidden;      /* фокус не уходит в невидимые кнопки */
+  transition:
+    transform var(--hd-t) var(--ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    opacity 0.25s ease,
+    visibility 0s var(--hd-t);   /* visibility — после конца уезда */
+}
+
+/* — СЖАТА (компактная, при скролле вниз дальше порога) —
+   ДЛИНА не меняется: та же ширина/раскладка, только высота меньше. */
+.site-header.hd-compact {
+  margin-top: 6px;                  /* прилипает ближе к верху окна */
+  border-radius: 20px;             /* тоньше скругление «уплотнённой» панели */
+  box-shadow:
+    0 8px 26px rgba(10, 6, 3, 0.4),
+    inset 0 1px 0 0 var(--glass-sheen);
+}
+.site-header.hd-compact .header-inner { padding: 6px 14px; gap: 12px; }
+/* компакт: все элементы пропорционально меньше, раскладка та же */
+.site-header.hd-compact .brand-badge { width: 32px; height: 32px; border-radius: 11px; font-size: 0.85rem; }
+.site-header.hd-compact .brand-text strong { font-size: 0.9rem; }
+.site-header.hd-compact .brand-text small { font-size: 0.68rem; }
+.site-header.hd-compact .icon-btn { width: 34px; height: 34px; border-radius: 11px; }
+.site-header.hd-compact .icon-btn svg { width: 16px; height: 16px; }
+.site-header.hd-compact .progress-ring { width: 32px; height: 32px; font-size: 0.56rem; }
+.site-header.hd-compact .progress-label { font-size: 0.72rem; }
+.site-header.hd-compact .header-progress { padding: 4px 11px 4px 4px; gap: 8px; }
+.site-header.hd-compact .search-input { padding: 7px 13px; font-size: 0.84rem; }
+/* сжатие самих элементов — плавное */
+.site-header .header-inner,
+.site-header .brand-badge,
+.site-header .icon-btn,
+.site-header .progress-ring,
+.site-header .search-input {
+  transition:
+    padding 0.4s var(--ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    width 0.4s var(--ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    height 0.4s var(--ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    font-size 0.4s var(--ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    border-radius 0.4s ease,
+    margin 0.4s ease;
+}
+
+/* — Возврат: пружинный overshoot на ЧИСТОМ transition (без keyframes,
+     чтобы не конфликтовать с transform-переходом уезда) — */
+.site-header.hd-return {
+  transform: translateY(0) scale(1);
+  transition:
+    transform 0.5s cubic-bezier(0.34, 1.45, 0.5, 1),
+    opacity 0.3s ease,
+    visibility 0s;
+  box-shadow:
+    var(--glass-shadow),
+    0 0 0 1px rgba(217, 185, 127, 0.25),    /* тёплый блик-кольцо при возврате */
+    inset 0 1px 0 0 var(--glass-sheen);
+}
+
+/* — ЗАКРЕПЛЕНА: автоуезд выключен кнопкой-булавкой — */
+.site-header.hd-pinned { transform: none !important; opacity: 1 !important; visibility: visible !important; }
+#pin-header.on {
+  background: var(--accent-grad);
+  color: var(--brand-contrast);
+  border-color: transparent;
+}
+
+/* — reduced-motion: без анимаций — мгновенно — */
+@media (prefers-reduced-motion: reduce) {
+  .site-header,
+  .site-header .header-inner,
+  .site-header .brand-badge,
+  .site-header .icon-btn,
+  .site-header .progress-ring,
+  .site-header .search-input {
+    transition: none !important;
+    animation: none !important;
+  }
 }
 
 .header-inner {
@@ -522,12 +693,7 @@ code {
 [data-theme="dark"] .toc-close:hover { background: rgba(216, 205, 188, 1); }
 
 #toc-list { overflow-y: auto; padding: 0 10px 10px; flex: 1; }
-
-#toc-list::-webkit-scrollbar { width: 6px; }
-#toc-list::-webkit-scrollbar-thumb {
-  background: var(--glass-bg-soft);
-  border-radius: 3px;
-}
+/* (стили скроллбаров сайдбара наследуются от глобальных — см. раздел 5b) */
 
 .toc-section {
   margin-top: 14px; padding: 6px 10px;
@@ -1193,6 +1359,8 @@ mark.hit {
   perspective: 1600px;
   z-index: 1;
 }
+/* контейнер слайдов (внутри сцены; hint лежит рядом и не затирается) */
+.pres-slides { position: absolute; inset: 0; }
 .pres-slide {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; gap: 14px;
@@ -2305,4 +2473,150 @@ body.reading::after {
   .live-bg { display: none !important; }
   .hk-capture.waiting { animation: none; }
   .row-tools, .anchor-btn { transition: none; }
+}
+
+/* ============================================================================
+   21. МОБИЛЬНАЯ ВЕРСИЯ: фиксы + СВАЙПЫ v2 (Pointer Events, drag за пальцем)
+   ============================================================================ */
+
+/* ---------- 21a. Мобильные фиксы ---------- */
+
+/* Нет горизонтального скролла; длинные слова переносятся */
+html, body { overflow-x: hidden; max-width: 100vw; }
+body, .d-p, .thesis p, .term dd, .tl-what, .quiz-opt span, .ps-items span {
+  overflow-wrap: break-word; word-break: break-word;
+}
+/* Таблицы дат: горизонтальный скролл внутри, а не страницы */
+.dates-table-wrap, .dates-table { max-width: 100%; }
+.dates-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.dates-table thead, .dates-table tbody { display: table; width: max-content; min-width: 100%; }
+
+/* Шапка: safe-area (вырезы/жест-бар iOS) + тап-зоны ≥44px */
+.site-header {
+  padding-left: env(safe-area-inset-left, 0);
+  padding-right: env(safe-area-inset-right, 0);
+}
+@media (max-width: 800px) {
+  .site-header {
+    margin: calc(8px + env(safe-area-inset-top, 0)) 10px 0;
+    /* шапка на touch: не перехватываем скролл пальцем по ней */
+    touch-action: pan-y;
+  }
+  /* одна строка вместо wrap — компактнее, поиск уезжает в строку ниже */
+  .header-inner { flex-wrap: nowrap; }
+  .header-progress { order: 0; flex: 0 1 auto; margin-left: auto; }
+  .search-wrap { order: 4; flex: 1 1 100%; margin-top: 8px; }
+  /* тап-зоны */
+  .icon-btn { width: 44px; height: 44px; }
+  .act { min-height: 44px; padding: 12px 16px; }
+  .btn { min-height: 46px; }
+  .tab-btn { min-height: 44px; }
+  .quiz-opt { min-height: 48px; }
+  .pomo-btn, .mycon-lb, .anchor-btn { width: 36px; height: 36px; }
+  /* поля без зума iOS: шрифт ≥16px */
+  .search-input, .notes-area, .gloss-search, .code-area, #catalog-filter, #tl-filter, #gloss-filter { font-size: 16px; }
+  .gloss-search, #catalog-filter, #tl-filter { font-size: 16px !important; }
+  /* презентация: fullscreen-подсказка скрыта (кнопка остаётся) */
+  .pres-help { display: none; }
+  /* Pomodoro не наезжает на жест-бар iOS */
+  .pomodoro { bottom: calc(12px + env(safe-area-inset-bottom, 0)); right: calc(10px + env(safe-area-inset-right, 0)); }
+  /* модалка — с safe-area и без выхода за экран */
+  .modal { max-height: calc(100dvh - 32px - env(safe-area-inset-bottom, 0)); }
+  .modal-backdrop { padding: 16px 10px calc(16px + env(safe-area-inset-bottom, 0)); }
+}
+/* dvh для мобильных (адресная строка не прыгает) */
+@media (max-width: 800px) {
+  .sidebar, .toc { height: 100dvh; max-height: 100dvh; }
+}
+
+/* Hover не залипает на тач: hover-эффекты — только для устройств с мышью */
+@media (hover: hover) {
+  /* (все :hover правила остаются как есть — они применяются только тут) */
+}
+@media (hover: none) {
+  .btn:hover, .act:hover, .icon-btn:hover, .toc-link:hover, .p-item:hover,
+  .quiz-opt:hover, .tool-btn:hover, .pres-arrow:hover, .sr-item:hover,
+  .term:hover, .thesis:hover, .anchor-btn:hover, .pomo-btn:hover, .story-seg:hover {
+    transform: none; box-shadow: inherit; background: inherit;
+  }
+  /* но активное нажатие видно */
+  .btn:active, .act:active, .icon-btn:active, .quiz-opt:active,
+  .toc-link:active, .pres-arrow:active { transform: scale(0.96); filter: brightness(1.15); }
+}
+
+/* ---------- 21b. СВАЙПЫ v2: drag за пальцем + пружина ----------
+   Указатели: touch/mouse/pen через Pointer Events.
+   Состояния слайда: .active; drag задаёт --dx (px) через transform
+   на обёртке сцены. Порог: 22% ширины или 44px скорость-флик.
+   reduced-motion: без follow-анимации, мгновенный перелист. */
+
+/* Пороги/тайминги — легко править */
+.pres-stage {
+  --sw-thresh: 0.22;        /* доля ширины для срабатывания */
+  --sw-min: 44px;           /* мин. px (короткий резкий флик) */
+  --sw-follow: 0.12s;       /* следование за пальцем */
+  --sw-spring: 0.5s;        /* пружинный возврат/доводка */
+  touch-action: pan-y;      /* вертикальный скролл не блокируем */
+  cursor: grab;
+}
+.pres-stage:active { cursor: grabbing; }
+
+/* во время drag: содержимое следует за пальцем */
+.pres-stage.sw-drag .pres-slide.active {
+  transition: transform var(--sw-follow) linear;
+  transform: translateX(var(--dx, 0px));
+  /* лёгкий «стеклянный» наклон и тень в момент перелистывания */
+  will-change: transform;
+}
+/* соседи чуть проявляются у края — намёк, что можно листать */
+.pres-stage.sw-drag .pres-slide.exit-r,
+.pres-stage.sw-drag .pres-slide.exit-l { opacity: .25; }
+
+/* стрелка-подсказка «можно свайпать» — деликатная, исчезает после первого свайпа */
+.sw-hint {
+  position: absolute; z-index: 5;
+  bottom: 10px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.74rem; font-weight: 600;
+  pointer-events: none;
+  opacity: 0;                                /* по умолчанию скрыта */
+  transition: opacity .4s ease;
+}
+.sw-hint i {
+  display: inline-block;
+  font-style: normal;
+  animation: sw-nudge 1.6s ease-in-out infinite;
+}
+.sw-hint i:first-child { animation-delay: -0.8s; }
+@keyframes sw-nudge {
+  0%, 100% { transform: translateX(0); opacity: .5; }
+  50%      { transform: translateX(±3px); opacity: 1; }
+}
+.sw-hint i.l { animation-name: sw-nudge-l; }
+@keyframes sw-nudge-l {
+  0%, 100% { transform: translateX(0); opacity: .5; }
+  50%      { transform: translateX(-3px); opacity: 1; }
+}
+@keyframes sw-nudge-r {
+  0%, 100% { transform: translateX(0); opacity: .5; }
+  50%      { transform: translateX(3px); opacity: 1; }
+}
+.sw-hint i.r { animation-name: sw-nudge-r; }
+/* показывается только на тач-устройствах, до первого свайпа */
+@media (hover: none) {
+  .pres-stage:not(.sw-used) .sw-hint { opacity: 1; }
+  .pres-stage.sw-used .sw-hint { opacity: 0; }
+}
+@media (hover: hover) { .sw-hint { display: none !important; } }
+
+/* reduced-motion: без follow/пружин — мгновенно */
+@media (prefers-reduced-motion: reduce) {
+  .pres-stage { --sw-follow: 0s; --sw-spring: 0s; }
+  .pres-stage.sw-drag .pres-slide.active { transition: none; }
+  .sw-hint i { animation: none; }
 }

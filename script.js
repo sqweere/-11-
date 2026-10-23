@@ -673,6 +673,8 @@ function renderFlashcards() {
   });
   $('#flash-next').addEventListener('click', next);
   $('#flash-prev').addEventListener('click', prev);
+  /* свайп карточек (touch/mouse): влево — вперёд, вправо — назад */
+  initSwipeSimple(card, next, prev);
   $$('.tab-btn[data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { switchMode(b.dataset.mode); });
   });
@@ -1351,7 +1353,10 @@ function renderParagraph(p) {
         '</div>' +
       '</div>' +
       '<div class="pres-story" id="pres-story" role="progressbar" aria-label="Прогресс урока"></div>' +
-      '<div class="pres-stage" id="pres-stage"></div>' +
+      '<div class="pres-stage" id="pres-stage">' +
+        '<div class="pres-slides" id="pres-slides"></div>' +   /* слайды здесь (hint не затирается) */
+        '<div class="sw-hint" aria-hidden="true"><i class="l">‹</i> можно свайпать <i class="r">›</i></div>' +
+      '</div>' +
       '<div class="pres-nav">' +
         '<button type="button" class="pres-arrow" id="pres-prev" aria-label="Предыдущий слайд"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button>' +
         '<div class="pres-dots" id="pres-dots"></div>' +
@@ -1621,7 +1626,8 @@ function initPresentation(p) {
   var auto = false, autoT = null;
   var AUTO_MS = 7000;                    // 7 секунд на слайд в авто-режиме
 
-  stage.innerHTML = slides.map(function (s, i) { return slideHTML(s, i, slides.length, p); }).join('');
+  var slidesHost = $('#pres-slides') || stage;   // слайды в отдельном контейнере
+  slidesHost.innerHTML = slides.map(function (s, i) { return slideHTML(s, i, slides.length, p); }).join('');
   story.innerHTML = slides.map(function (_, i) {
     return '<button type="button" class="story-seg" data-i="' + i + '" aria-label="Слайд ' + (i + 1) + '"><i></i></button>';
   }).join('');
@@ -1664,7 +1670,7 @@ function initPresentation(p) {
     cur = next;
     stage.style.setProperty('--dir', dir);
 
-    $$('.pres-slide', stage).forEach(function (el, n) {
+    $$('.pres-slide', slidesHost).forEach(function (el, n) {
       if (n === cur) {
         el.classList.remove('exit-l', 'exit-r');
         el.classList.add('active');
@@ -1733,15 +1739,68 @@ function initPresentation(p) {
     }
   });
 
-  /* Свайп */
-  var sx = null;
-  stage.addEventListener('touchstart', function (e) { sx = e.touches[0].clientX; }, { passive: true });
-  stage.addEventListener('touchend', function (e) {
-    if (sx === null) return;
-    var dx = e.changedTouches[0].clientX - sx;
-    if (Math.abs(dx) > 40) show(dx < 0 ? cur + 1 : cur - 1);
-    sx = null;
+  /* ---- СВАЙП v2: Pointer Events (touch/mouse/pen), drag за пальцем ----
+     Горизонтальный drag двигает активный слайд (--dx), отпустил:
+     |dx| > max(22% ширины, 44px-флик) → перелист; иначе — пружина назад.
+     Вертикальный скролл не блокируем (touch-action: pan-y в CSS);
+     в момент явного вертикального движения — свайп отменяется. */
+  function stageW() {
+    try { return (stage.getBoundingClientRect().width) || 320; }
+    catch (e) { return 320; }   // экзотика без DOM-геометрии
+  }
+  var W = stageW();
+  var dragging = false, startX = 0, startY = 0, locked = null;   // null|'x'|'y'
+  var THRESH = 0.22, MIN_PX = 44;
+  var hintSeen = false;   // подсказка «‹ можно свайпать ›» до первого свайпа
+
+  function setDrag(dx) {
+    stage.classList.add('sw-drag');
+    stage.style.setProperty('--dx', dx.toFixed(1) + 'px');
+  }
+  function endDrag() {
+    stage.classList.remove('sw-drag');
+    stage.style.removeProperty('--dx');
+  }
+
+  stage.addEventListener('pointerdown', function (e) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    dragging = true; locked = null;
+    startX = e.clientX; startY = e.clientY;
+    W = stageW();
   }, { passive: true });
+
+  stage.addEventListener('pointermove', function (e) {
+    if (!dragging) return;
+    var dx = e.clientX - startX;
+    var dy = e.clientY - startY;
+    /* определяем ось жеста один раз (защита от конфликта с верт. скроллом) */
+    if (!locked) {
+      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) locked = 'x';
+      else if (Math.abs(dy) > 12) { locked = 'y'; dragging = false; return; }
+    }
+    if (locked !== 'x') return;
+    e.preventDefault();                     // на десктопе с мышью не выделяем
+    /* у краёв — резинка (сопротивление) */
+    var atEdge = (dx > 0 && cur === 0) || (dx < 0 && cur === slides.length - 1);
+    if (atEdge) dx = dx * 0.3;
+    setDrag(dx);
+  }, { passive: false });
+
+  function finishDrag(e) {
+    if (!dragging) return;
+    dragging = false;
+    if (locked !== 'x') { endDrag(); return; }
+    var dx = (e.clientX - startX);
+    var vx = dx / Math.max(1, (e.timeStamp - (finishDrag.t0 || e.timeStamp)));  // px/ms
+    finishDrag.t0 = null;
+    var passed = Math.abs(dx) > Math.max(W * THRESH, MIN_PX) || Math.abs(dx) > 20;
+    endDrag();
+    if (!hintSeen) { hintSeen = true; stage.classList.add('sw-used'); }   // спрятать подсказку
+    if (passed) show(dx < 0 ? cur + 1 : cur - 1);
+    /* иначе — пружинный возврат CSS сам (transition на .active) */
+  }
+  stage.addEventListener('pointerup', finishDrag, { passive: true });
+  stage.addEventListener('pointercancel', function () { dragging = false; endDrag(); }, { passive: true });
 
   /* Полный экран */
   $('#pres-fs').addEventListener('click', function () {
@@ -1759,6 +1818,28 @@ function initPresentation(p) {
   });
 
   show(startAt);
+}
+
+/* Универсальный свайп для простых списков (флеш-карточки):
+   без drag — чистый порог 30% ширины, обе оси разведены. */
+function initSwipeSimple(el, onLeft, onRight) {
+  var sx = 0, sy = 0, moved = null;
+  el.addEventListener('pointerdown', function (e) {
+    sx = e.clientX; sy = e.clientY; moved = null;
+  }, { passive: true });
+  el.addEventListener('pointermove', function (e) {
+    if (moved === 'done') return;
+    var dx = e.clientX - sx, dy = e.clientY - sy;
+    if (Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+      moved = 'x';
+    } else if (Math.abs(dy) > 16) moved = 'y';
+  }, { passive: true });
+  el.addEventListener('pointerup', function (e) {
+    if (moved !== 'x') return;
+    var w = el.getBoundingClientRect().width || 300;
+    var dx = e.clientX - sx;
+    if (Math.abs(dx) > w * 0.3) { dx < 0 ? onLeft() : onRight(); moved = 'done'; }
+  }, { passive: true });
 }
 
 /* ---------- 11. ДЕЙСТВИЯ ПАРАГРАФА ---------- */
@@ -1890,6 +1971,99 @@ function initHeader() {
     var t = continueTarget();
     if (t) location.hash = '#/' + t.id;
   });
+}
+
+/* ---------- Уезжающая шапка ----------
+   ФИКС ЛАГА: направление скролла определяется АККУМУЛЯТОРОМ —
+   медленный скролл вверх суммируется кадрами и уверенно возвращает шапку
+   (раньше dy за кадр было <порога → шапка застревала скрытой).
+   Плюс: таймер «остановки» — если скролл замер, шапка не дёргается;
+   hd-return чистится таймером (animationend больше не используется);
+   кнопка-булавка #pin-header полностью отключает автоуезд. */
+function initHeaderHide() {
+  var hd = $('.site-header');
+  if (!hd) return;
+
+  var HIDE_AT = 10;       // px накопленного вниз-скролла → спрятать
+  var SHOW_AT = 6;        // px накопленного вверх-скролла → вернуть
+  var COMPACT_AT = 110;   // px — порог сжатия по высоте
+  var lastY = window.scrollY || 0;
+  var acc = 0;            // аккумулятор направления (px)
+  var ticking = false;
+  var retT = null;        // таймер снятия hd-return
+  var pinned = store.get('obsh11:pin-header', false);   // закрепление
+
+  var pinBtn = $('#pin-header');
+  if (pinBtn) {
+    /* применяем сохранённое состояние */
+    pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+    pinBtn.classList.toggle('on', pinned);
+    hd.classList.toggle('hd-pinned', pinned);
+    pinBtn.addEventListener('click', function () {
+      pinned = !pinned;
+      store.set('obsh11:pin-header', pinned);
+      pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+      pinBtn.classList.toggle('on', pinned);
+      hd.classList.toggle('hd-pinned', pinned);
+      if (pinned) {
+        /* закрепили: показать сразу и сбросить аккумулятор */
+        hd.classList.remove('hd-hide', 'hd-return');
+        acc = 0;
+        toast('Шапка закреплена');
+      } else {
+        toast('Шапка снова уезжает при скролле');
+      }
+    });
+  }
+
+  function onScroll() {
+    var y = window.scrollY || 0;
+    var dy = y - lastY;
+    lastY = y;
+
+    if (pinned) { ticking = false; return; }   // закреплена — логика не работает
+
+    /* аккумулятор: медленный, но устойчивый скролл копится */
+    acc += dy;
+    /* затухание к нулю (чтобы «дрожь» не копилась бесконечно) */
+    if (Math.sign(acc) !== Math.sign(dy)) acc = acc * 0.6 + dy;
+
+    /* сжатие по высоте — только от позиции (переключаем один раз) */
+    var wantCompact = y > COMPACT_AT;
+    if (wantCompact !== hd.classList.contains('hd-compact')) {
+      hd.classList.toggle('hd-compact', wantCompact);
+    }
+
+    if (y <= 4) {
+      /* у верху — всегда на месте */
+      if (hd.classList.contains('hd-hide') || hd.classList.contains('hd-return')) {
+        hd.classList.remove('hd-hide', 'hd-return');
+        acc = 0;
+      }
+      ticking = false;
+      return;
+    }
+
+    if (acc > HIDE_AT && !hd.classList.contains('hd-hide')) {
+      /* вниз → спрятать */
+      hd.classList.add('hd-hide');
+      hd.classList.remove('hd-return');
+      acc = 0;
+    } else if (acc < -SHOW_AT && hd.classList.contains('hd-hide')) {
+      /* вверх → вернуть: пружинный transition; снимаем класс по таймеру */
+      hd.classList.remove('hd-hide');
+      hd.classList.add('hd-return');
+      clearTimeout(retT);
+      retT = setTimeout(function () { hd.classList.remove('hd-return'); }, 520);
+      acc = 0;
+    }
+
+    ticking = false;
+  }
+
+  window.addEventListener('scroll', function () {
+    if (!ticking) { ticking = true; requestAnimationFrame(onScroll); }
+  }, { passive: true });
 }
 
 /* Поиск с подсветкой */
@@ -2812,6 +2986,7 @@ function init() {
   initSidebar();
   initGlint();
   initHeader();
+  initHeaderHide();     // уезжающая шапка (скролл-логика)
   initGlobalSearch();    // ф. 43: глобальный поиск (заменяет initSearch)
   initModals();
   initHotkeys();
