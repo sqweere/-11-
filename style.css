@@ -1218,66 +1218,58 @@ code {
   .icon-btn { width: 36px; height: 36px; border-radius: 11px; }
   .header-actions { gap: 5px; }
 
-  /* ——— МОБИЛЬНЫЙ EXPAND-ПОИСК: строка на всю шапку ———
-     Кнопка-лупа → .header-inner.search-mode:
-     все элементы, кроме меню-кнопки, гаснут и уезжают с лёгким stagger,
-     поле поиска растёт с левого края на 100% с spring-морфом пилюли.
-     Закрытие — та же лупа (она превращается в крестик) или Esc. */
-  .search-open-btn { position: relative; z-index: 3; }
-  .search-open-btn .so-lens { transition: transform .4s var(--ease, cubic-bezier(.22,1,.36,1)), opacity .3s ease; }
-  .search-open-btn .so-x { transition: transform .4s var(--ease, cubic-bezier(.22,1,.36,1)), opacity .25s ease; }
+  /* ——— МОБИЛЬНЫЙ ПОИСК v2: чистый и быстрый, без отдельного окна ———
+     Лупа → поиск: остальные элементы ПРОСТО быстро исчезают (fade 0.15s,
+     без перемещений), поле появляется С ЛЕВОГО КРАЯ шапки (после меню-
+     кнопки) и растёт на всю строку — печатать можно сразу.
+     Закрытие: та же лупа справа (морф в ✕) или Esc. */
+  .search-open-btn { position: relative; z-index: 3; order: 9; }   /* всегда справа */
+  .search-open-btn .so-lens,
+  .search-open-btn .so-x {
+    transition: transform .28s var(--ease, cubic-bezier(.22,1,.36,1)), opacity .18s ease;
+  }
+  .search-open-btn .so-x { position: absolute; opacity: 0; transform: rotate(90deg) scale(.5); }
 
-  /* элементы, которые уступают место поиску: stagger-уход */
-  .header-inner > *:not(.search-wrap):not(.search-open-btn) {
-    transition:
-      opacity .3s ease,
-      transform .38s var(--ease, cubic-bezier(.22,1,.36,1));
+  /* fade-out остальных: быстро и разом, чисто */
+  .header-inner > *:not(.search-wrap):not(.search-open-btn):not(#menu-toggle) {
+    transition: opacity .15s ease;
   }
   .header-inner.search-mode .brand,
   .header-inner.search-mode .header-progress,
-  .header-inner.search-mode .header-actions,
-  .header-inner.search-mode #menu-toggle {
+  .header-inner.search-mode .header-actions {
     opacity: 0;
-    transform: translateX(-14px) scale(.9);
     pointer-events: none;
+    transition-delay: 0s;
   }
-  /* порядок ухода: меню чуть медленнее — эффект «шторки» */
-  .header-inner.search-mode #menu-toggle { transition-delay: 0s; }
-  .header-inner.search-mode .brand { transition-delay: .04s; }
-  .header-inner.search-mode .header-progress { transition-delay: .08s; }
-  .header-inner.search-mode .header-actions { transition-delay: .12s; }
 
-  /* поле поиска: показывается и растёт на всю строку */
+  /* поле: сразу после меню-кнопки, растёт от левого края, БЫСТРО */
   .header-inner.search-mode .search-wrap {
     display: block;
-    position: absolute;
-    left: 10px; right: 10px; top: 50%;
-    transform: translateY(-50%);
-    flex: none;
+    flex: 1 1 auto;
+    order: 1;
+    min-width: 0;
     z-index: 2;
-    animation: so-expand .5s cubic-bezier(0.34, 1.3, 0.5, 1);
+    animation: so-grow .22s var(--ease, cubic-bezier(.22,1,.36,1));
   }
   .header-inner.search-mode .search-input {
-    padding: 8px 14px;
-    font-size: 16px;                     /* без зума iOS */
-    box-shadow: 0 6px 24px rgba(0,0,0,.25), inset 0 1px 0 var(--glass-sheen);
+    padding: 7px 14px;
+    font-size: 16px;                    /* без зума iOS */
   }
-  /* морф пилюли: из точки слева — в полную ширину */
-  @keyframes so-expand {
-    0%   { clip-path: inset(0 92% 0 0 round 999px); opacity: .3; }
-    55%  { clip-path: inset(0 4% 0 0 round 999px); opacity: 1; }
-    100% { clip-path: inset(0 0 0 0 round 999px); opacity: 1; }
+  @keyframes so-grow {
+    from { opacity: 0; transform: scaleX(.4); transform-origin: left center; }
+    to   { opacity: 1; transform: scaleX(1);  transform-origin: left center; }
   }
-  /* лупа → крестик: поворот с overshoot */
-  .header-inner.search-mode .search-open-btn .so-lens { opacity: 0; transform: rotate(-90deg) scale(.4); }
+
+  /* лупа (справа) → крестик: быстрый морф */
+  .header-inner.search-mode .search-open-btn .so-lens { opacity: 0; transform: rotate(-90deg) scale(.5); }
   .header-inner.search-mode .search-open-btn .so-x { opacity: 1; transform: rotate(0deg) scale(1); }
-  /* кнопка прижата вправо, над всем */
-  .header-inner.search-mode .search-open-btn { margin-left: auto; }
-  /* результаты — ниже всей шапки, во всю ширину окна */
+
+  /* результаты — стандартный dropdown, но шире: во всю ширину окна */
   .header-inner.search-mode .search-results {
     position: fixed;
     left: 10px; right: 10px;
     top: calc(100% + 6px);
+    max-height: min(420px, 60dvh);
   }
 
   .layout { grid-template-columns: 1fr; padding: 16px 10px 36px; }

@@ -2071,9 +2071,16 @@ function initHeaderHide() {
 
   function onScroll(ev) {
     /* источник скролла: окно ИЛИ внутренний контейнер (слайды, сайдбар,
-       модалка…) — берём top того, что реально скроллится */
-    var src = (ev && ev.target && ev.target !== document && ev.target.scrollTop !== undefined)
-      ? ev.target : null;
+       модалка…) — берём top того, что реально скроллится.
+       ИСКЛЮЧЕНИЕ: выпадающие результаты поиска — скролл внутри них
+       НЕ должен прятать/показывать шапку (иначе список «закрывается»). */
+    var t = ev && ev.target;
+    if (t && t.classList && (t.classList.contains('search-results') ||
+        (t.closest && t.closest && t.closest('.search-results')))) {
+      ticking = false;
+      return;
+    }
+    var src = (t && t !== document && t.scrollTop !== undefined) ? t : null;
     var y, dy;
     if (src) {
       /* внутренний скролл: работаем по его позиции, окно не трогаем */
@@ -2087,6 +2094,19 @@ function initHeaderHide() {
     }
 
     if (mode !== 'auto') { ticking = false; return; }   // pinned/hidden — логика выключена
+
+    /* поиск активен (фокус в поле или мобильный expand-режим) — шапку
+       не трогаем: пользователь работает с результатами */
+    var sIn = document.getElementById('search-input');
+    var inner = document.querySelector('.header-inner');
+    var searchActive = (sIn && document.activeElement === sIn) ||
+                       (inner && inner.classList.contains('search-mode'));
+    if (searchActive && hd.classList.contains('hd-hide') === false) {
+      /* шапка видима при активном поиске — просто не прячем её */
+      acc = 0;
+      ticking = false;
+      return;
+    }
 
     /* аккумулятор: медленный, но устойчивый скролл копится */
     acc += dy;
@@ -3091,8 +3111,8 @@ function initMobileSearch() {
     inner.classList.add('search-mode');
     btn.setAttribute('aria-label', 'Закрыть поиск');
     btn.setAttribute('aria-expanded', 'true');
-    /* фокус после морфа (анимация 0.5s — фокус на пике) */
-    setTimeout(function () { input.focus({ preventScroll: true }); }, 120);
+    /* фокус почти сразу (анимация 0.22s — печатать можно моментально) */
+    setTimeout(function () { input.focus({ preventScroll: true }); }, 60);
   }
   function close() {
     inner.classList.remove('search-mode');
