@@ -484,7 +484,8 @@ code {
 .site-header.hd-compact .progress-ring { width: 28px; height: 28px; font-size: 0.52rem; }
 .site-header.hd-compact .progress-label { font-size: 0.68rem; }
 .site-header.hd-compact .header-progress { padding: 3px 9px 3px 3px; gap: 7px; }
-.site-header.hd-compact .search-input { padding: 5px 12px; font-size: 0.82rem; }
+.site-header.hd-compact .search-input { padding: 3px 8px; font-size: 0.7rem; }
+.site-header.hd-compact .search-wrap { flex-basis: 60px; }   /* ещё короче в сжатой */
 /* сжатие самих элементов — плавное */
 .site-header .header-inner,
 .site-header .brand-badge,
@@ -1208,10 +1209,10 @@ code {
   .brand-text { display: none; }
   .brand { flex: 0 0 auto; }               /* только бейдж, без текста */
   .brand-badge { width: 30px; height: 30px; border-radius: 10px; font-size: 0.8rem; }
-  /* поиск: узкая пилюля «Поиск» — но раскрывается при фокусе */
-  .search-wrap { flex: 1 1 auto; min-width: 70px; }
-  .search-input { padding: 6px 12px; font-size: 0.86rem; }
-  .search-wrap:focus-within { flex-basis: 200px; }
+  /* поиск: мини-пилюля — раскрывается при фокусе */
+  .search-wrap { flex: 1 1 auto; min-width: 36px; }
+  .search-input { padding: 4px 8px; font-size: 0.74rem; }
+  .search-wrap:focus-within { flex-basis: 140px; }
   .header-progress { order: 0; flex: 0 0 auto; margin-left: auto; padding: 3px 8px 3px 3px; gap: 6px; }
   .progress-ring { width: 26px; height: 26px; font-size: 0.5rem; }
   .progress-label { display: none; }         /* число оставляем в ring */
@@ -1892,14 +1893,15 @@ body.focus-mode .search-wrap { display: none !important; }
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
-/* ---------- Поиск: компакт (только «Поиск») + выпадающие результаты ---------- */
-.search-wrap { position: relative; flex: 0 1 150px; min-width: 112px; transition: flex-basis .35s var(--ease, ease); }
+/* ---------- Поиск: мини-пилюля (только «Поиск») + выпадающие результаты ---------- */
+.search-wrap { position: relative; flex: 0 1 72px; min-width: 52px; transition: flex-basis .35s var(--ease, ease); }
 .search-input {
-  width: 100%; padding: 7px 14px;            /* компакт (было 10/16) */
+  width: 100%; padding: 4px 9px;
   border-radius: 999px;
-  font: inherit; font-size: 0.9rem; color: var(--text);
+  font: inherit; font-size: 0.76rem; color: var(--text);
+  letter-spacing: -0.2px;                  /* чуть плотнее — «Поиск» влезает */
 }
-.search-wrap:focus-within { flex-basis: 250px; }  /* фокус — плавно шире */
+.search-wrap:focus-within { flex-basis: 210px; }  /* фокус — плавно шире */
 .search-input::placeholder { color: var(--muted); }
 .search-results {
   position: absolute; top: calc(100% + 8px); left: 0; right: 0;
