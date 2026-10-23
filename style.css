@@ -1289,46 +1289,49 @@ code {
     pointer-events: none;
   }
 
-  /* ② строка появляется ПОСЛЕ крестика (кнопка уже улетела в угол)
-     и растёт НА ВСЮ шапку — от кнопки до правого края */
+  /* ② строка появляется ПОСЛЕ крестика и растёт НА ВСЮ шапку:
+     позиционируем АБСОЛЮТНО — от кнопки (слева, 52px) до правого края.
+     Не flex-item → её не сжимают скрытые элементы. */
   .header-inner.search-mode .m-search {
-    flex: 1 1 auto;
-    max-width: none;
-    min-width: 0;
+    position: absolute;
+    left: 52px;                            /* сразу после кнопки-крестика */
+    right: 0; top: 0; bottom: 0;
+    display: flex; align-items: center;
+    margin: 0;
     opacity: 1;
     pointer-events: auto;
-    /* задержка: сначала кнопка долетает и круглеет (0.38s), потом строка */
-    animation: m-search-in .38s cubic-bezier(0.34, 1.25, 0.5, 1) .1s backwards;
-    margin-right: 0;                      /* до самого правого края */
+    animation: m-search-in .38s cubic-bezier(0.34, 1.25, 0.5, 1) .12s backwards;
   }
   .header-inner.search-mode .m-search .search-input {
     width: 100%;
-    padding-right: 18px;
+    padding: 7px 16px;
+    font-size: 16px;
   }
   @keyframes m-search-in {
-    from { opacity: 0; transform: translateX(-16px) scaleX(.35); transform-origin: left center; }
+    from { opacity: 0; transform: translateX(-18px) scaleX(.3); transform-origin: left center; }
     60%  { opacity: 1; }
     to   { opacity: 1; transform: none; }
   }
-  /* занимаем всё: gap шапки больше не мешает — строка тянется в конец */
-  .header-inner.search-mode { gap: 8px; }
-  .header-inner.search-mode .m-search { flex: 1 1 100%; }
 
-  /* ③ остальные кнопки/прогресс: быстро плавно гаснут (дети actions) */
+  /* ③ остальные кнопки/прогресс: гаснут И УХОДЯТ из потока (после fade)
+     → шапка целиком принадлежит кнопке и строке */
   .header-inner > .brand,
   .header-inner > .header-progress,
-  .header-inner > .header-actions,
-  .header-inner > .header-actions > :not(.search-open-btn) {
+  .header-inner > .header-actions > :not(.search-open-btn),
+  .header-inner > #menu-toggle {
     transition: opacity .2s ease, transform .28s var(--ease, cubic-bezier(.22,1,.36,1));
   }
   .header-inner.search-mode .brand,
   .header-inner.search-mode .header-progress,
-  .header-inner.search-mode .header-actions > :not(.search-open-btn) {
+  .header-inner.search-mode .header-actions > :not(.search-open-btn),
+  .header-inner.search-mode #menu-toggle {
     opacity: 0;
     transform: scale(.88);
     pointer-events: none;
+    /* из потока после fade — отдаём ширину строке */
+    animation: m-collapse .01s linear .22s forwards;
   }
-  .header-inner.search-mode .header-actions { opacity: 1; transform: none; }
+  @keyframes m-collapse { to { display: none; } }
 
   /* результаты — под шапкой во всю ширину окна */
   .header-inner.search-mode .search-results,
@@ -2014,15 +2017,14 @@ body.focus-mode .search-wrap { display: none !important; }
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
-/* ---------- Поиск: мини-пилюля (только «Поиск») + выпадающие результаты ---------- */
-.search-wrap { position: relative; flex: 0 1 72px; min-width: 52px; transition: flex-basis .35s var(--ease, ease); }
+/* ---------- Поиск (десктоп): заметно крупнее + выпадающие результаты ---------- */
+.search-wrap { position: relative; flex: 0 1 220px; min-width: 150px; transition: flex-basis .35s var(--ease, ease); }
 .search-input {
-  width: 100%; padding: 4px 9px;
+  width: 100%; padding: 9px 18px;
   border-radius: 999px;
-  font: inherit; font-size: 0.76rem; color: var(--text);
-  letter-spacing: -0.2px;                  /* чуть плотнее — «Поиск» влезает */
+  font: inherit; font-size: 0.92rem; color: var(--text);
 }
-.search-wrap:focus-within { flex-basis: 210px; }  /* фокус — плавно шире */
+.search-wrap:focus-within { flex-basis: 320px; }  /* фокус — плавно шире */
 .search-input::placeholder { color: var(--muted); }
 .search-results {
   position: absolute; top: calc(100% + 8px); left: 0; right: 0;
