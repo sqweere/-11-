@@ -3085,36 +3085,24 @@ function initGlobalSearch() {
   });
 }
 
-/* ---------- Мобильный поиск v4: идеальная хореография ----------
-   Кнопка-лупа — крайняя справа в header-actions. Клик:
-   ① кнопка превращается в КРУГ (заливается акцентом),
-   ② СЛЕВА от неё вырастает отдельная строка .m-search (spring),
-   ③ остальные кнопки шапки плавно гаснут.
-   Повторный клик / Esc — обратный порядок, быстро и плавно.
-   Строка .m-search с инпутом #m-input создаётся здесь же. */
+/* ---------- Мобильный поиск: кнопка-лупа СЛЕВА у оглавления ----------
+   ОДНА строка поиска на весь сайт: существующий .search-wrap c #search-input.
+   На мобиле строка скрыта; клик по лупе: кнопка летит в левый угол,
+   круглеет, и .search-wrap появляется на всю шапку (search-mode).
+   Никаких вторых инпутов — двойной поиск невозможен физически. */
 function initMobileSearch() {
   var btn = document.getElementById('search-open');
   var inner = document.querySelector('.header-inner');
-  if (!btn || !inner) return;
-
-  /* — создаём строку поиска и вставляем СРАЗУ ПОСЛЕ кнопки-лупы —
-     (кнопка слева у оглавления; строка вырастает справа от неё) */
-  var mWrap = document.createElement('div');
-  mWrap.className = 'm-search';
-  mWrap.innerHTML =
-    '<input type="search" id="m-input" class="search-input glass" placeholder="Поиск…" aria-label="Поиск по конспектам" autocomplete="off">' +
-    '<div id="m-results" class="search-results glass" hidden></div>';
-  if (btn.parentNode) btn.parentNode.insertBefore(mWrap, btn.nextSibling);
-
-  var input = document.getElementById('m-input');
-  var box = document.getElementById('m-results');
+  var wrap = document.querySelector('.search-wrap');     // та же строка, что на ПК
+  var input = document.getElementById('search-input');
+  if (!btn || !inner || !wrap) return;
 
   var mq = window.matchMedia('(max-width: 800px)');
   function sync() {
     btn.hidden = !mq.matches;
     if (!mq.matches) {
       inner.classList.remove('search-mode');
-      if (box) box.hidden = true;
+      if (input && input.blur) input.blur();
     }
   }
   if (mq.addEventListener) mq.addEventListener('change', sync);
@@ -3125,15 +3113,17 @@ function initMobileSearch() {
     inner.classList.add('search-mode');
     btn.setAttribute('aria-label', 'Закрыть поиск');
     btn.setAttribute('aria-expanded', 'true');
-    if (input) setTimeout(function () { input.focus({ preventScroll: true }); }, 150);
+    setTimeout(function () { if (input.focus) input.focus({ preventScroll: true }); }, 150);
   }
   function close() {
     inner.classList.remove('search-mode');
     btn.setAttribute('aria-label', 'Открыть поиск');
     btn.setAttribute('aria-expanded', 'false');
-    if (input) { input.blur(); input.value = ''; }
+    if (input.blur) input.blur();
+    input.value = '';
+    var box = document.getElementById('search-results');
     if (box) box.hidden = true;
-    setTimeout(function () { btn.focus({ preventScroll: true }); }, 50);
+    setTimeout(function () { if (btn.focus) btn.focus({ preventScroll: true }); }, 50);
   }
 
   btn.addEventListener('click', function () {
@@ -3143,58 +3133,14 @@ function initMobileSearch() {
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && inner.classList.contains('search-mode')) close();
   });
-
-  /* — живой поиск: мобильная копия логики initGlobalSearch — */
-  if (input && box) {
-    var idx = globalSearchIndex();
-    var sel = -1;
-    function hl(s, re) { return esc(s).replace(re, function (m) { return '<mark class="hit">' + m + '</mark>'; }); }
-    function typeLabel(t) {
-      return ({ page: 'Параграфы', term: 'Термины', quiz: 'Вопросы тестов', slide: 'Слайды' })[t] || t;
+  /* клик мимо поиска/кнопки — закрыть (только на мобиле) */
+  document.addEventListener('click', function (e) {
+    if (!mq.matches) return;
+    if (!e.target.closest || (!e.target.closest('.search-wrap') && !e.target.closest('#search-open'))) {
+      var box = document.getElementById('search-results');
+      if (box) box.hidden = true;
     }
-    function run() {
-      var q = input.value.trim().toLowerCase();
-      sel = -1;
-      if (q.length < 2) { box.hidden = true; box.innerHTML = ''; return; }
-      var re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-      var hits = idx.filter(function (r) {
-        return (r.title + ' ' + r.text).toLowerCase().indexOf(q) !== -1;
-      }).slice(0, 12);
-      if (!hits.length) {
-        box.hidden = false;
-        box.innerHTML = '<div class="sr-item empty-state" style="padding:22px 10px"><div class="e-icon">⌕</div><b>Ничего не найдено</b></div>';
-        return;
-      }
-      var groups = {};
-      hits.forEach(function (r) { (groups[r.type] = groups[r.type] || []).push(r); });
-      box.innerHTML = Object.keys(groups).map(function (t) {
-        return '<div class="sr-group small muted" style="padding:6px 12px 2px">' + typeLabel(t) + '</div>' +
-          groups[t].map(function (r) {
-            return '<button type="button" class="sr-item" data-go="' + esc(r.go) + '">' +
-              '<b>' + hl(r.title, re) + '</b><br><span class="small">' + hl((r.text || '').slice(0, 110), re) + '</span></button>';
-          }).join('');
-      }).join('');
-      box.hidden = false;
-    }
-    input.addEventListener('input', run);
-    input.addEventListener('keydown', function (e) {
-      var items = $$('.sr-item[data-go]', box);
-      if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(items.length - 1, sel + 1); items.forEach(function (el, n) { el.classList.toggle('sel', n === sel); }); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(0, sel - 1); items.forEach(function (el, n) { el.classList.toggle('sel', n === sel); }); }
-      else if (e.key === 'Enter') {
-        e.preventDefault();
-        var it = items[sel === -1 ? 0 : sel];
-        if (it) { box.hidden = true; input.value = ''; input.blur(); location.hash = '#/' + it.dataset.go; }
-      }
-    });
-    box.addEventListener('click', function (e) {
-      var it = e.target.closest && e.target.closest('.sr-item[data-go]');
-      if (it) { box.hidden = true; input.value = ''; input.blur(); location.hash = '#/' + it.dataset.go; }
-    });
-    document.addEventListener('click', function (e) {
-      if (!e.target.closest || (!e.target.closest('.m-search') && !e.target.closest('#search-open'))) box.hidden = true;
-    });
-  }
+  });
 }
 
 /* Инициализация */
