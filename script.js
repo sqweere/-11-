@@ -3061,7 +3061,59 @@ function initGlobalSearch() {
     if (it) go(it);
   });
   document.addEventListener('click', function (e) {
-    if (!e.target.closest('.search-wrap')) box.hidden = true;
+    if (!e.target.closest('.search-wrap') && !e.target.closest('#search-open')) box.hidden = true;
+  });
+}
+
+/* ---------- Мобильный expand-поиск ----------
+   На ≤800px поля поиска нет — только кнопка-лупа #search-open.
+   Клик: .header-inner.search-mode — все элементы stagger-гаснут,
+   строка растёт с левого края на всю шапку (clip-path morph).
+   Повторный клик по лупе (она же крестик) / Esc — закрыть. */
+function initMobileSearch() {
+  var btn = document.getElementById('search-open');
+  var inner = document.querySelector('.header-inner');
+  var input = document.getElementById('search-input');
+  if (!btn || !inner || !input) return;
+
+  var mq = window.matchMedia('(max-width: 800px)');
+
+  function sync() {
+    /* кнопка существует только на мобильных экранах */
+    btn.hidden = !mq.matches;
+    if (!mq.matches) inner.classList.remove('search-mode');
+  }
+  if (mq.addEventListener) mq.addEventListener('change', sync);
+  else if (mq.addListener) mq.addListener(sync);   // старый Safari
+  sync();
+
+  function open() {
+    inner.classList.add('search-mode');
+    btn.setAttribute('aria-label', 'Закрыть поиск');
+    btn.setAttribute('aria-expanded', 'true');
+    /* фокус после морфа (анимация 0.5s — фокус на пике) */
+    setTimeout(function () { input.focus({ preventScroll: true }); }, 120);
+  }
+  function close() {
+    inner.classList.remove('search-mode');
+    btn.setAttribute('aria-label', 'Открыть поиск');
+    btn.setAttribute('aria-expanded', 'false');
+    input.blur();
+    input.value = '';
+    var box = document.getElementById('search-results');
+    if (box) box.hidden = true;
+  }
+
+  btn.addEventListener('click', function () {
+    if (inner.classList.contains('search-mode')) close();
+    else open();
+  });
+
+  /* Esc закрывает expand-поиск */
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && inner.classList.contains('search-mode')) {
+      close();
+    }
   });
 }
 
@@ -3073,6 +3125,7 @@ function init() {
   initHeader();
   initHeaderHide();     // уезжающая шапка (скролл-логика)
   initGlobalSearch();    // ф. 43: глобальный поиск (заменяет initSearch)
+  initMobileSearch();    // мобильная лупа → expand-поиск на всю шапку
   initModals();
   initHotkeys();
   initPWA();

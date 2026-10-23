@@ -1207,17 +1207,78 @@ code {
   /* «Обществоведение» в столбик не помещается — прячем текст целиком:
      остаётся компактный бейдж-книга (клик — на главную) */
   .brand-text { display: none; }
-  .brand { flex: 0 0 auto; }               /* только бейдж, без текста */
+  .brand { flex: 0 0 auto; }
   .brand-badge { width: 30px; height: 30px; border-radius: 10px; font-size: 0.8rem; }
-  /* поиск: мини-пилюля — раскрывается при фокусе */
-  .search-wrap { flex: 1 1 auto; min-width: 36px; }
-  .search-input { padding: 4px 8px; font-size: 0.74rem; }
-  .search-wrap:focus-within { flex-basis: 140px; }
+  /* ПОИСК: поля на мобиле НЕТ — только кнопка-лупа #search-open */
+  .search-wrap { display: none; }
+  .search-open-btn { display: grid; }
   .header-progress { order: 0; flex: 0 0 auto; margin-left: auto; padding: 3px 8px 3px 3px; gap: 6px; }
   .progress-ring { width: 26px; height: 26px; font-size: 0.5rem; }
-  .progress-label { display: none; }         /* число оставляем в ring */
+  .progress-label { display: none; }
   .icon-btn { width: 36px; height: 36px; border-radius: 11px; }
   .header-actions { gap: 5px; }
+
+  /* ——— МОБИЛЬНЫЙ EXPAND-ПОИСК: строка на всю шапку ———
+     Кнопка-лупа → .header-inner.search-mode:
+     все элементы, кроме меню-кнопки, гаснут и уезжают с лёгким stagger,
+     поле поиска растёт с левого края на 100% с spring-морфом пилюли.
+     Закрытие — та же лупа (она превращается в крестик) или Esc. */
+  .search-open-btn { position: relative; z-index: 3; }
+  .search-open-btn .so-lens { transition: transform .4s var(--ease, cubic-bezier(.22,1,.36,1)), opacity .3s ease; }
+  .search-open-btn .so-x { transition: transform .4s var(--ease, cubic-bezier(.22,1,.36,1)), opacity .25s ease; }
+
+  /* элементы, которые уступают место поиску: stagger-уход */
+  .header-inner > *:not(.search-wrap):not(.search-open-btn) {
+    transition:
+      opacity .3s ease,
+      transform .38s var(--ease, cubic-bezier(.22,1,.36,1));
+  }
+  .header-inner.search-mode .brand,
+  .header-inner.search-mode .header-progress,
+  .header-inner.search-mode .header-actions,
+  .header-inner.search-mode #menu-toggle {
+    opacity: 0;
+    transform: translateX(-14px) scale(.9);
+    pointer-events: none;
+  }
+  /* порядок ухода: меню чуть медленнее — эффект «шторки» */
+  .header-inner.search-mode #menu-toggle { transition-delay: 0s; }
+  .header-inner.search-mode .brand { transition-delay: .04s; }
+  .header-inner.search-mode .header-progress { transition-delay: .08s; }
+  .header-inner.search-mode .header-actions { transition-delay: .12s; }
+
+  /* поле поиска: показывается и растёт на всю строку */
+  .header-inner.search-mode .search-wrap {
+    display: block;
+    position: absolute;
+    left: 10px; right: 10px; top: 50%;
+    transform: translateY(-50%);
+    flex: none;
+    z-index: 2;
+    animation: so-expand .5s cubic-bezier(0.34, 1.3, 0.5, 1);
+  }
+  .header-inner.search-mode .search-input {
+    padding: 8px 14px;
+    font-size: 16px;                     /* без зума iOS */
+    box-shadow: 0 6px 24px rgba(0,0,0,.25), inset 0 1px 0 var(--glass-sheen);
+  }
+  /* морф пилюли: из точки слева — в полную ширину */
+  @keyframes so-expand {
+    0%   { clip-path: inset(0 92% 0 0 round 999px); opacity: .3; }
+    55%  { clip-path: inset(0 4% 0 0 round 999px); opacity: 1; }
+    100% { clip-path: inset(0 0 0 0 round 999px); opacity: 1; }
+  }
+  /* лупа → крестик: поворот с overshoot */
+  .header-inner.search-mode .search-open-btn .so-lens { opacity: 0; transform: rotate(-90deg) scale(.4); }
+  .header-inner.search-mode .search-open-btn .so-x { opacity: 1; transform: rotate(0deg) scale(1); }
+  /* кнопка прижата вправо, над всем */
+  .header-inner.search-mode .search-open-btn { margin-left: auto; }
+  /* результаты — ниже всей шапки, во всю ширину окна */
+  .header-inner.search-mode .search-results {
+    position: fixed;
+    left: 10px; right: 10px;
+    top: calc(100% + 6px);
+  }
 
   .layout { grid-template-columns: 1fr; padding: 16px 10px 36px; }
 

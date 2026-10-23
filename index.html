@@ -83,11 +83,17 @@
         <span class="brand-text"><strong>Обществоведение</strong><small>11 класс · конспекты и уроки</small></span>
       </a>
 
-      <!-- ПОИСК по конспектам (клавиша /) — компакт: только «Поиск» -->
+      <!-- ПОИСК по конспектам (клавиша /) — компакт: только «Поиск».
+           На мобильных вместо поля — кнопка-лупа: раскрывает строку
+           на всю шапку (#search-open → .header-inner.search-mode) -->
       <div class="search-wrap">
         <input type="search" id="search-input" class="search-input glass" placeholder="Поиск" aria-label="Поиск по конспектам" autocomplete="off">
         <div id="search-results" class="search-results glass" hidden></div>
       </div>
+      <button type="button" class="icon-btn glass search-open-btn" id="search-open" aria-label="Открыть поиск" title="Поиск" hidden>
+        <svg class="so-lens" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <svg class="so-x" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" style="position:absolute; opacity:0; transform: rotate(90deg) scale(.4);"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
 
       <!-- Прогресс курса (клик — «продолжить») -->
       <button type="button" class="header-progress" id="progress-btn" title="Продолжить с места остановки">
