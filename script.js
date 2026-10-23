@@ -215,7 +215,10 @@ function navigate() {
 /* ---------- 6. TOC (сайдбар) ---------- */
 
 function renderTOC() {
-  var html = '';
+  /* шапка оглавления: вернуться ко всем параграфам (страница каталога) */
+  var html = '<a class="toc-all" href="#/catalog">' +
+    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>' +
+    'Все параграфы</a>';
   SITE_DATA.sections.forEach(function (section) {
     html += '<div class="toc-section">' + esc(section.short) + '</div>';
     section.paragraphs.forEach(function (p) {
@@ -2689,7 +2692,16 @@ function toggleReading(on) {
   store.set(K.reading, on);
   var btn = $('#act-reading');
   if (btn) { btn.classList.toggle('on', on); btn.lastChild.textContent = on ? ' Обычный' : ' Чтение'; }
-  toast(on ? 'Режим чтения включён (Esc — выход)' : 'Режим чтения выключен');
+  /* настоящая кнопка выхода (кликабельна, в отличие от ::after) */
+  var exit = document.getElementById('reading-exit');
+  if (exit) {
+    exit.hidden = !on;
+    if (on) {
+      exit.onclick = function () { toggleReading(false); };   // клик — выход
+      exit.focus({ preventScroll: true });                    // сразу доступна с клавиатуры
+    }
+  }
+  toast(on ? 'Режим чтения включён (Esc или кнопка ✕)' : 'Режим чтения выключен');
 }
 
 /* ---------- Ф.29. ЗАКЛАДКИ ВНУТРИ ПАРАГРАФА ---------- */

@@ -751,6 +751,22 @@ code {
 #toc-list { overflow-y: auto; padding: 0 10px 10px; flex: 1; }
 /* (стили скроллбаров сайдбара наследуются от глобальных — см. раздел 5b) */
 
+/* «Все параграфы» — кнопка-стекло над списком оглавления */
+.toc-all {
+  display: flex; align-items: center; gap: 9px;
+  margin: 4px 0 2px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--border);
+  color: var(--text); font-size: 0.88rem; font-weight: 600;
+  cursor: pointer;
+  transition: background .25s ease, border-color .25s ease, transform .18s ease;
+}
+.toc-all:hover { background: var(--glass-bg); border-color: var(--brand-2); text-decoration: none; }
+.toc-all:active { transform: scale(0.97); }
+.toc-all svg { color: var(--brand); flex: 0 0 auto; }
+
 .toc-section {
   margin-top: 14px; padding: 6px 10px;
   font-size: 0.7rem; font-weight: 700; letter-spacing: 0.7px;
@@ -1187,8 +1203,10 @@ code {
   .site-header { margin: 8px 8px 0; }
   /* ОДНА строка: всё в ряд, ничего не переносится */
   .header-inner { flex-wrap: nowrap; gap: 8px; padding: 6px 10px; overflow: hidden; }
-  .brand-text small { display: none; }
-  .brand-text strong { font-size: 0.86rem; }
+  /* «Обществоведение» в столбик не помещается — прячем текст целиком:
+     остаётся компактный бейдж-книга (клик — на главную) */
+  .brand-text { display: none; }
+  .brand { flex: 0 0 auto; }               /* только бейдж, без текста */
   .brand-badge { width: 30px; height: 30px; border-radius: 10px; font-size: 0.8rem; }
   /* поиск: узкая пилюля «Поиск» — но раскрывается при фокусе */
   .search-wrap { flex: 1 1 auto; min-width: 70px; }
@@ -2486,10 +2504,11 @@ body.reading .thesis p,
 body.reading .d-p,
 body.reading .intro-lead { font-size: 1.06rem; line-height: 1.8; }
 body.reading .crumbs { display: none; }
-/* плавающая кнопка выхода */
-body.reading::after {
-  content: "✕ Чтение (Esc)";
+/* плавающая кнопка выхода — НАСТОЯЩАЯ кнопка (кликабельна, фокус, Esc) */
+#reading-exit {
   position: fixed; right: 16px; top: 16px; z-index: 210;
+  display: none;                      /* показывается в body.reading */
+  align-items: center; gap: 8px;
   padding: 10px 16px;
   border-radius: 12px;
   background: var(--glass-bg-strong);
@@ -2497,7 +2516,16 @@ body.reading::after {
   color: var(--text);
   font: 600 0.82rem/1 inherit;
   cursor: pointer;
-  pointer-events: auto;
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-sheen);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+  transition: transform .2s var(--ease, ease), border-color .2s ease;
+}
+#reading-exit:hover { transform: translateY(-2px); border-color: var(--brand-2); }
+#reading-exit:active { transform: scale(0.95); }
+body.reading #reading-exit { display: inline-flex; animation: hd-restore-in .4s cubic-bezier(0.34, 1.4, 0.5, 1); }
+@media (max-width: 800px) {
+  #reading-exit { right: 10px; top: calc(10px + env(safe-area-inset-top, 0)); padding: 12px 16px; }
 }
 
 /* --- ф. 31. Редактор хоткеев --- */
