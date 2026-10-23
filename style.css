@@ -1218,58 +1218,100 @@ code {
   .icon-btn { width: 36px; height: 36px; border-radius: 11px; }
   .header-actions { gap: 5px; }
 
-  /* ——— МОБИЛЬНЫЙ ПОИСК v2: чистый и быстрый, без отдельного окна ———
-     Лупа → поиск: остальные элементы ПРОСТО быстро исчезают (fade 0.15s,
-     без перемещений), поле появляется С ЛЕВОГО КРАЯ шапки (после меню-
-     кнопки) и растёт на всю строку — печатать можно сразу.
-     Закрытие: та же лупа справа (морф в ✕) или Esc. */
-  .search-open-btn { position: relative; z-index: 3; order: 9; }   /* всегда справа */
+  /* ——— МОБИЛЬНЫЙ ПОИСК v3: кнопка-лупа МОРФИРУЕТ в поле ———
+     Клик по лупе: она сама плавно уезжает ВЛЕВО, её края растягиваются
+     в пилюлю поиска на всю строку; меню-кнопка (слева) быстро исчезает.
+     Поле — ЭТО кнопка: морф через width/border-radius на контейнере.
+     Повторный клик (лупа-крестик теперь слева) — возврат на место,
+     кнопки так же плавно появляются. */
+  .search-open-btn {
+    position: relative;
+    z-index: 4;
+    order: 2;                          /* сразу после меню-кнопки */
+    width: 36px;                       /* база как у icon-btn */
+    flex: 0 1 auto;                    /* МОЖЕТ расти при морфе */
+    /* морф: квадратная кнопка → пилюля-поле на всю строку */
+    transition:
+      width .4s var(--ease, cubic-bezier(.22,1,.36,1)),
+      flex-basis .4s var(--ease, cubic-bezier(.22,1,.36,1)),
+      border-radius .4s var(--ease, cubic-bezier(.22,1,.36,1)),
+      background .3s ease,
+      box-shadow .3s ease,
+      margin-left .4s var(--ease, cubic-bezier(.22,1,.36,1));
+    /* внутри — инпут, невидимый до раскрытия */
+  }
+  .search-open-btn .so-input {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    border: none; outline: none;
+    background: transparent;
+    color: var(--text);
+    font: inherit; font-size: 16px;      /* без зума iOS */
+    padding: 0 14px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease .15s;   /* проявляется после раскрытия */
+  }
   .search-open-btn .so-lens,
   .search-open-btn .so-x {
-    transition: transform .28s var(--ease, cubic-bezier(.22,1,.36,1)), opacity .18s ease;
+    position: absolute; left: 50%; top: 50%;
+    margin: -9.5px 0 0 -9.5px;
+    transition: transform .3s var(--ease, cubic-bezier(.22,1,.36,1)), opacity .18s ease;
+    pointer-events: none;
   }
-  .search-open-btn .so-x { position: absolute; opacity: 0; transform: rotate(90deg) scale(.5); }
+  .search-open-btn .so-x { opacity: 0; transform: rotate(90deg) scale(.4); }
 
-  /* fade-out остальных: быстро и разом, чисто */
-  .header-inner > *:not(.search-wrap):not(.search-open-btn):not(#menu-toggle) {
-    transition: opacity .15s ease;
+  /* — ОТКРЫТО: лупа стала полем (морф) — */
+  .header-inner.search-mode .search-open-btn {
+    flex: 1 1 auto;                      /* растягивается на всё свободное */
+    width: auto;
+    margin-left: 0;
+    border-radius: 999px;               /* края — в круг */
+    background: var(--glass-bg);
+    box-shadow: 0 4px 18px rgba(0,0,0,.22), inset 0 1px 0 var(--glass-sheen);
+  }
+  .header-inner.search-mode .search-open-btn .so-input {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  /* иконки: лупа гаснет, крестик проявляется (в центре-справа) */
+  .header-inner.search-mode .search-open-btn .so-lens { opacity: 0; transform: scale(.5) rotate(-45deg); }
+  .header-inner.search-mode .search-open-btn .so-x {
+    opacity: 1; transform: none;
+    left: auto; right: 9px; margin: 0;    /* крестик у правого края поля */
+  }
+
+  /* — элементы: исчезает ТОЛЬКО то, что слева (меню-кнопка); справа —
+     кнопки/прогресс остаются видимыми, просто уступают ширину — */
+  .header-inner > #menu-toggle {
+    transition: opacity .18s ease, transform .3s var(--ease, cubic-bezier(.22,1,.36,1));
+  }
+  .header-inner.search-mode #menu-toggle {
+    opacity: 0;
+    transform: translateX(-10px) scale(.85);
+    pointer-events: none;
+  }
+  /* остальные (прогресс, действия, книга) — просто flex сжимает их
+     при width:100% лупы; на всякий случай гасим быстро */
+  .header-inner > .brand,
+  .header-inner > .header-progress,
+  .header-inner > .header-actions {
+    transition: opacity .18s ease;
   }
   .header-inner.search-mode .brand,
   .header-inner.search-mode .header-progress,
   .header-inner.search-mode .header-actions {
     opacity: 0;
     pointer-events: none;
-    transition-delay: 0s;
   }
 
-  /* поле: сразу после меню-кнопки, растёт от левого края, БЫСТРО */
-  .header-inner.search-mode .search-wrap {
-    display: block;
-    flex: 1 1 auto;
-    order: 1;
-    min-width: 0;
-    z-index: 2;
-    animation: so-grow .22s var(--ease, cubic-bezier(.22,1,.36,1));
-  }
-  .header-inner.search-mode .search-input {
-    padding: 7px 14px;
-    font-size: 16px;                    /* без зума iOS */
-  }
-  @keyframes so-grow {
-    from { opacity: 0; transform: scaleX(.4); transform-origin: left center; }
-    to   { opacity: 1; transform: scaleX(1);  transform-origin: left center; }
-  }
-
-  /* лупа (справа) → крестик: быстрый морф */
-  .header-inner.search-mode .search-open-btn .so-lens { opacity: 0; transform: rotate(-90deg) scale(.5); }
-  .header-inner.search-mode .search-open-btn .so-x { opacity: 1; transform: rotate(0deg) scale(1); }
-
-  /* результаты — стандартный dropdown, но шире: во всю ширину окна */
+  /* результаты — под шапкой во всю ширину окна */
   .header-inner.search-mode .search-results {
     position: fixed;
     left: 10px; right: 10px;
     top: calc(100% + 6px);
     max-height: min(420px, 60dvh);
+    z-index: 60;
   }
 
   .layout { grid-template-columns: 1fr; padding: 16px 10px 36px; }

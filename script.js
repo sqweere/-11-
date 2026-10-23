@@ -3085,56 +3085,84 @@ function initGlobalSearch() {
   });
 }
 
-/* ---------- Мобильный expand-поиск ----------
-   На ≤800px поля поиска нет — только кнопка-лупа #search-open.
-   Клик: .header-inner.search-mode — все элементы stagger-гаснут,
-   строка растёт с левого края на всю шапку (clip-path morph).
-   Повторный клик по лупе (она же крестик) / Esc — закрыть. */
+/* ---------- Мобильный поиск: МОРФ кнопки-лупы в поле ----------
+   На ≤800px поля нет — только кнопка-лупа #search-open.
+   Клик: кнопка плавно уезжает ВЛЕВО, её края растягиваются в пилюлю
+   (width → 100%, border-radius → 999px), инпут внутри проявляется;
+   меню-кнопка и прочее слева быстро гаснут. Повторный клик / Esc —
+   обратный морф, всё возвращается. Инпут #so-input живёт В КНОПКЕ. */
 function initMobileSearch() {
   var btn = document.getElementById('search-open');
   var inner = document.querySelector('.header-inner');
-  var input = document.getElementById('search-input');
-  if (!btn || !inner || !input) return;
+  var input = document.getElementById('so-input');   // инпут ВНУТРИ кнопки
+  if (!btn || !inner) return;
 
   var mq = window.matchMedia('(max-width: 800px)');
 
   function sync() {
-    /* кнопка существует только на мобильных экранах */
     btn.hidden = !mq.matches;
-    if (!mq.matches) inner.classList.remove('search-mode');
+    if (!mq.matches) {
+      inner.classList.remove('search-mode');
+      /* вернуть десктопный поиск в рабочее состояние */
+      var si = document.getElementById('search-input');
+      if (si) si.disabled = false;
+    }
   }
   if (mq.addEventListener) mq.addEventListener('change', sync);
-  else if (mq.addListener) mq.addListener(sync);   // старый Safari
+  else if (mq.addListener) mq.addListener(sync);
   sync();
 
   function open() {
     inner.classList.add('search-mode');
     btn.setAttribute('aria-label', 'Закрыть поиск');
     btn.setAttribute('aria-expanded', 'true');
-    /* фокус почти сразу (анимация 0.22s — печатать можно моментально) */
-    setTimeout(function () { input.focus({ preventScroll: true }); }, 60);
+    if (input) setTimeout(function () { input.focus({ preventScroll: true }); }, 120);
   }
   function close() {
     inner.classList.remove('search-mode');
     btn.setAttribute('aria-label', 'Открыть поиск');
     btn.setAttribute('aria-expanded', 'false');
-    input.blur();
-    input.value = '';
+    if (input) { input.blur(); input.value = ''; }
     var box = document.getElementById('search-results');
     if (box) box.hidden = true;
+    /* вернуть фокус на кнопку — доступность */
+    setTimeout(function () { btn.focus({ preventScroll: true }); }, 50);
   }
 
-  btn.addEventListener('click', function () {
+  /* клик по кнопке-морфу: только когда НЕ по инпуту (инпут внутри ловит своё) */
+  btn.addEventListener('click', function (e) {
+    if (input && e.target === input) return;   // клик в поле — печатаем
     if (inner.classList.contains('search-mode')) close();
     else open();
   });
 
-  /* Esc закрывает expand-поиск */
+  /* крестик внутри кнопки — тоже закрывает */
+  var x = btn.querySelector('.so-x');
+  if (x) x.addEventListener('click', function (e) { e.stopPropagation(); close(); });
+
+  /* Esc закрывает */
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && inner.classList.contains('search-mode')) {
-      close();
-    }
+    if (e.key === 'Escape' && inner.classList.contains('search-mode')) close();
   });
+
+  /* живой поиск из морф-инпута: результаты — общий #search-results */
+  if (input) {
+    var box = document.getElementById('search-results');
+    var main = document.getElementById('search-input');
+    /* транслируем ввод в главный инпут и дергаем его input-событие —
+       так работает вся готовая логика (индекс, группы, клавиатура) */
+    input.addEventListener('input', function () {
+      if (main) {
+        main.value = input.value;
+        main.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+    /* позиционируем выпадушку под шапкой — box уже fixed в CSS */
+    if (box) {
+      /* ensure box живёт в кнопке, чтобы fixed-координаты считались от шапки */
+      try { btn.appendChild(box); } catch (e) {}
+    }
+  }
 }
 
 /* Инициализация */
