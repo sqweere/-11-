@@ -119,14 +119,16 @@ function saveProgress()  { store.set(K.progress, progress); updateHeaderProgress
 
 /* ---------- 4. ТЕМА: light / dark / auto + акцент ---------- */
 
+
 function applyTheme(mode) {
   store.set(K.theme, mode);
   document.documentElement.dataset.themeMode = mode;
+  /* слот dark = «Светлая» (слоновая кость); слот light = «Тёмная модерн» */
   var dark = mode === 'dark' ||
              (mode === 'auto' && (new Date().getHours() >= 21 || new Date().getHours() < 7));
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   var meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', dark ? '#241a10' : '#e9e2d0');
+  if (meta) meta.setAttribute('content', dark ? '#e9e2d0' : '#1c1a17');
 }
 
 function applyAccent(a) {
@@ -136,13 +138,15 @@ function applyAccent(a) {
 
 function initTheme() {
   applyAccent(store.get(K.accent, 'oak'));
-  applyTheme(store.get(K.theme, 'dark'));   // дефолт — тёмная
+  applyTheme(store.get(K.theme, 'dark'));   // дефолт — «Светлая» (кость, слот dark)
   $('#theme-toggle').addEventListener('click', function () {
-    var order = ['dark', 'light', 'auto'];  // цикл начинается с тёмной
+    var order = ['dark', 'light', 'auto'];  // цикл: светлая(кость) → модерн → авто
     var cur = document.documentElement.dataset.themeMode || 'dark';
     var next = order[(order.indexOf(cur) + 1) % 3];
     applyTheme(next);
-    toast(next === 'auto' ? 'Тема: авто (по времени)' : next === 'dark' ? 'Тёмная тема' : 'Светлая тема');
+    toast(next === 'auto' ? 'Тема: авто (по времени)'
+         : next === 'dark' ? 'Светлая тема (слоновая кость)'
+         : 'Тёмная модерн (дерево/мрамор)');
   });
   /* авто-переключение раз в минуту */
   setInterval(function () {
@@ -1973,13 +1977,19 @@ function initHeader() {
   });
 }
 
-/* ---------- Уезжающая шапка ----------
-   ФИКС ЛАГА: направление скролла определяется АККУМУЛЯТОРОМ —
-   медленный скролл вверх суммируется кадрами и уверенно возвращает шапку
-   (раньше dy за кадр было <порога → шапка застревала скрытой).
-   Плюс: таймер «остановки» — если скролл замер, шапка не дёргается;
-   hd-return чистится таймером (animationend больше не используется);
-   кнопка-булавка #pin-header полностью отключает автоуезд. */
+/* ---------- Шапка: 3 режима + уезд/возврат (аккумулятор против лага) ----
+   Режимы (кнопка-булавка, цикл): 'auto' → 'pinned' → 'hidden' → 'auto'.
+     auto   — как сейчас: скролл вниз прячет, вверх — возвращает (везде).
+     pinned — закреплена: никогда не уезжает.
+     hidden — скрыта ПОЛНОСТЬЮ; внизу справа — пилюля «Показать шапку».
+   Направление — аккумулятор (медленный скролл вверх суммируется кадрами),
+   rAF + passive, без layout thrashing. */
+var HD_MODES = ['auto', 'pinned', 'hidden'];
+var HD_TITLES = {
+  auto:   'Шапка: авто-скрытие (клик — закрепить)',
+  pinned: 'Шапка закреплена (клик — скрыть полностью)',
+  hidden: 'Шапка скрыта (клик — авто-скрытие)'
+};
 function initHeaderHide() {
   var hd = $('.site-header');
   if (!hd) return;
@@ -1988,54 +1998,107 @@ function initHeaderHide() {
   var SHOW_AT = 6;        // px накопленного вверх-скролла → вернуть
   var COMPACT_AT = 110;   // px — порог сжатия по высоте
   var lastY = window.scrollY || 0;
-  var acc = 0;            // аккумулятор направления (px)
+  var acc = 0;
   var ticking = false;
-  var retT = null;        // таймер снятия hd-return
-  var pinned = store.get('obsh11:pin-header', false);   // закрепление
+  var retT = null;
+  var mode = 'auto';
+  try { mode = store.get('obsh11:hd-mode', 'auto'); } catch (e) {}
+  if (HD_MODES.indexOf(mode) === -1) mode = 'auto';
 
   var pinBtn = $('#pin-header');
-  if (pinBtn) {
-    /* применяем сохранённое состояние */
-    pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
-    pinBtn.classList.toggle('on', pinned);
-    hd.classList.toggle('hd-pinned', pinned);
-    pinBtn.addEventListener('click', function () {
-      pinned = !pinned;
-      store.set('obsh11:pin-header', pinned);
-      pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
-      pinBtn.classList.toggle('on', pinned);
-      hd.classList.toggle('hd-pinned', pinned);
-      if (pinned) {
-        /* закрепили: показать сразу и сбросить аккумулятор */
-        hd.classList.remove('hd-hide', 'hd-return');
-        acc = 0;
-        toast('Шапка закреплена');
-      } else {
-        toast('Шапка снова уезжает при скролле');
+  var restoreBtn = null;   // пилюля «показать шапку» (создаётся в hidden)
+
+  /* — применяем режим к DOM (кнопка + классы шапки + пилюля) — */
+  function applyMode(m, animate) {
+    mode = m;
+    store.set('obsh11:hd-mode', m);
+    if (pinBtn) {
+      pinBtn.dataset.mode = m;
+      pinBtn.setAttribute('title', HD_TITLES[m]);
+      pinBtn.setAttribute('aria-label', HD_TITLES[m]);
+      pinBtn.setAttribute('aria-pressed', m === 'pinned' ? 'true' : 'false');
+      /* иконка: pin (auto/pinned) или eye (hidden) */
+      var pin = pinBtn.querySelector('.pin-svg');
+      var eye = pinBtn.querySelector('.eye-svg');
+      if (pin) pin.hidden = m !== 'auto' && m !== 'pinned';
+      if (eye) eye.hidden = m !== 'hidden';
+    }
+    hd.classList.toggle('hd-pinned', m === 'pinned');
+    hd.classList.toggle('hd-force-hidden', m === 'hidden');
+    if (m !== 'hidden') {
+      /* показать шапку; анимация возврата — только при смене с hidden */
+      hd.classList.remove('hd-hide');
+      if (animate) {
+        hd.classList.add('hd-return');
+        clearTimeout(retT);
+        retT = setTimeout(function () { hd.classList.remove('hd-return'); }, 520);
       }
-    });
+      acc = 0;
+    }
+    /* пилюля возврата: живёт только в hidden */
+    if (m === 'hidden' && !restoreBtn) {
+      restoreBtn = document.createElement('button');
+      restoreBtn.type = 'button';
+      restoreBtn.className = 'hd-restore';
+      restoreBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 3.83A7.93 7.93 0 0 0 12 16a7.93 7.93 0 0 0 4.11-1.41A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg> Показать шапку';
+      restoreBtn.setAttribute('aria-label', 'Показать шапку');
+      restoreBtn.addEventListener('click', function () {
+        /* возврат к авто — шапка красиво возвращается */
+        applyMode('auto', true);
+        toast('Шапка снова с вами');
+      });
+      document.body.appendChild(restoreBtn);
+    } else if (m !== 'hidden' && restoreBtn) {
+      restoreBtn.remove();
+      restoreBtn = null;
+    }
   }
 
-  function onScroll() {
-    var y = window.scrollY || 0;
-    var dy = y - lastY;
-    lastY = y;
+  /* кнопка-булавка: цикл режимов */
+  if (pinBtn) {
+    pinBtn.addEventListener('click', function () {
+      var next = HD_MODES[(HD_MODES.indexOf(mode) + 1) % HD_MODES.length];
+      applyMode(next, mode === 'hidden');   // анимация только при возврате из hidden
+      toast(mode === 'pinned' ? 'Шапка закреплена — не уезжает'
+           : mode === 'hidden' ? 'Шапка скрыта (пилюля внизу — вернуть)'
+           : 'Шапка: авто-скрытие');
+    });
+  }
+  applyMode(mode, false);   // восстановление после перезагрузки (без анимации)
 
-    if (pinned) { ticking = false; return; }   // закреплена — логика не работает
+  function onScroll(ev) {
+    /* источник скролла: окно ИЛИ внутренний контейнер (слайды, сайдбар,
+       модалка…) — берём top того, что реально скроллится */
+    var src = (ev && ev.target && ev.target !== document && ev.target.scrollTop !== undefined)
+      ? ev.target : null;
+    var y, dy;
+    if (src) {
+      /* внутренний скролл: работаем по его позиции, окно не трогаем */
+      y = src.scrollTop;
+      dy = y - (src._hdLastY || 0);
+      src._hdLastY = y;
+    } else {
+      y = window.scrollY || 0;
+      dy = y - lastY;
+      lastY = y;
+    }
+
+    if (mode !== 'auto') { ticking = false; return; }   // pinned/hidden — логика выключена
 
     /* аккумулятор: медленный, но устойчивый скролл копится */
     acc += dy;
-    /* затухание к нулю (чтобы «дрожь» не копилась бесконечно) */
     if (Math.sign(acc) !== Math.sign(dy)) acc = acc * 0.6 + dy;
 
-    /* сжатие по высоте — только от позиции (переключаем один раз) */
-    var wantCompact = y > COMPACT_AT;
-    if (wantCompact !== hd.classList.contains('hd-compact')) {
-      hd.classList.toggle('hd-compact', wantCompact);
+    /* сжатие по высоте — только от позиции ОКНА (внутренний скролл не влияет) */
+    if (!src) {
+      var wantCompact = y > COMPACT_AT;
+      if (wantCompact !== hd.classList.contains('hd-compact')) {
+        hd.classList.toggle('hd-compact', wantCompact);
+      }
     }
 
-    if (y <= 4) {
-      /* у верху — всегда на месте */
+    /* правило «у верха» — только для окна; внутренний скролл живёт по аккумулятору */
+    if (!src && y <= 4) {
       if (hd.classList.contains('hd-hide') || hd.classList.contains('hd-return')) {
         hd.classList.remove('hd-hide', 'hd-return');
         acc = 0;
@@ -2050,7 +2113,7 @@ function initHeaderHide() {
       hd.classList.remove('hd-return');
       acc = 0;
     } else if (acc < -SHOW_AT && hd.classList.contains('hd-hide')) {
-      /* вверх → вернуть: пружинный transition; снимаем класс по таймеру */
+      /* вверх → вернуть: пружинный transition */
       hd.classList.remove('hd-hide');
       hd.classList.add('hd-return');
       clearTimeout(retT);
@@ -2061,9 +2124,19 @@ function initHeaderHide() {
     ticking = false;
   }
 
-  window.addEventListener('scroll', function () {
-    if (!ticking) { ticking = true; requestAnimationFrame(onScroll); }
+  /* 1) скролл окна */
+  window.addEventListener('scroll', function (e) {
+    if (!ticking) { ticking = true; requestAnimationFrame(function () { onScroll(null); }); }
   }, { passive: true });
+  /* 2) внутренние скроллы ЛЮБОГО элемента (capture: ловит все контейнеры,
+        включая созданные позже — слайды, сайдбар, модалки). Так шапка
+        реагирует на скролл вверх в КАЖДОЙ части сайта. */
+  document.addEventListener('scroll', function (e) {
+    var t = e.target;
+    if (!t || t === document || t === document.body || t === window) return;
+    if (typeof t.scrollTop !== 'number') return;
+    if (!ticking) { ticking = true; requestAnimationFrame(function () { onScroll({ target: t }); }); }
+  }, { passive: true, capture: true });
 }
 
 /* Поиск с подсветкой */

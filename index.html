@@ -27,16 +27,15 @@
 
   <!-- Тема применяется ДО отрисовки (без «вспышки»).
        ДЕФОЛТ — ТЁМНАЯ «камень и бронза». Светлая «пергамент» — кнопкой 🌙.
-       ВАЖНО: старое сохранённое значение (light/auto со старых версий сайта)
-       игнорируется один раз и перезаписывается на тёмную — так все увидят
-       новую тёмную по умолчанию; после этого выбор пользователя снова
-       сохраняется как обычно (ключ obsh11:theme-v2). -->
+       ВАЖНО: сохранённый выбор (light/auto/dark) работает как обычно
+       (ключ obsh11:theme-v2). Слот dark = «Светлая» (слоновая кость),
+       слот light = «Тёмная модерн» (графит/латунь). -->
   <script>
     (function () {
-      var KEY = 'obsh11:theme-v2';          // новый ключ — старые настройки не мешают
+      var KEY = 'obsh11:theme-v2';
       try {
         var saved = localStorage.getItem(KEY);
-        var mode = saved ? saved.replace(/"/g, '') : 'dark';   // дефолт: тёмная
+        var mode = saved ? saved.replace(/"/g, '') : 'dark';   // дефолт: светлая (кость)
         if (mode !== 'dark' && mode !== 'light' && mode !== 'auto') mode = 'dark';
         var dark = mode === 'dark' ||
                    (mode === 'auto' && (function () {
@@ -81,9 +80,9 @@
         <span class="brand-text"><strong>Обществоведение</strong><small>11 класс · конспекты и уроки</small></span>
       </a>
 
-      <!-- ПОИСК по конспектам (клавиша /) -->
+      <!-- ПОИСК по конспектам (клавиша /) — компакт: только «Поиск» -->
       <div class="search-wrap">
-        <input type="search" id="search-input" class="search-input glass" placeholder="Поиск… ( / )" aria-label="Поиск по конспектам" autocomplete="off">
+        <input type="search" id="search-input" class="search-input glass" placeholder="Поиск" aria-label="Поиск по конспектам" autocomplete="off">
         <div id="search-results" class="search-results glass" hidden></div>
       </div>
 
@@ -94,9 +93,10 @@
       </button>
 
       <div class="header-actions">
-        <!-- ЗАКРЕПИТЬ ШАПКУ: вкл/выкл автоуезд при скролле -->
-        <button type="button" class="icon-btn glass" id="pin-header" title="Закрепить шапку (не скрывать при скролле)" aria-label="Закрепить шапку" aria-pressed="false">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 3.83A7.93 7.93 0 0 0 12 16a7.93 7.93 0 0 0 4.11-1.41A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg>
+        <!-- РЕЖИМ ШАПКИ: авто-уезд → закрепить → скрыть (цикл по клику) -->
+        <button type="button" class="icon-btn glass hd-mode-btn" id="pin-header" title="Шапка: авто-скрытие" aria-label="Режим шапки" aria-pressed="false">
+          <svg class="pin-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 3.83A7.93 7.93 0 0 0 12 16a7.93 7.93 0 0 0 4.11-1.41A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg>
+          <svg class="eye-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
         <!-- ЗАКЛАДКИ (на виду) -->
         <button type="button" class="icon-btn glass" id="bookmarks-btn" title="Закладки" aria-label="Закладки">
