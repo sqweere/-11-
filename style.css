@@ -1289,18 +1289,30 @@ code {
     pointer-events: none;
   }
 
-  /* ② строка вырастает СПРАВА от кнопки — почти вся шапка */
+  /* ② строка появляется ПОСЛЕ крестика (кнопка уже улетела в угол)
+     и растёт НА ВСЮ шапку — от кнопки до правого края */
   .header-inner.search-mode .m-search {
     flex: 1 1 auto;
     max-width: none;
+    min-width: 0;
     opacity: 1;
     pointer-events: auto;
-    animation: m-search-in .35s cubic-bezier(0.34, 1.25, 0.5, 1);
+    /* задержка: сначала кнопка долетает и круглеет (0.38s), потом строка */
+    animation: m-search-in .38s cubic-bezier(0.34, 1.25, 0.5, 1) .1s backwards;
+    margin-right: 0;                      /* до самого правого края */
+  }
+  .header-inner.search-mode .m-search .search-input {
+    width: 100%;
+    padding-right: 18px;
   }
   @keyframes m-search-in {
-    from { opacity: 0; transform: translateX(-12px) scaleX(.5); transform-origin: left center; }
+    from { opacity: 0; transform: translateX(-16px) scaleX(.35); transform-origin: left center; }
+    60%  { opacity: 1; }
     to   { opacity: 1; transform: none; }
   }
+  /* занимаем всё: gap шапки больше не мешает — строка тянется в конец */
+  .header-inner.search-mode { gap: 8px; }
+  .header-inner.search-mode .m-search { flex: 1 1 100%; }
 
   /* ③ остальные кнопки/прогресс: быстро плавно гаснут (дети actions) */
   .header-inner > .brand,
