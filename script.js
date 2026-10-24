@@ -3116,14 +3116,21 @@ function initMobileSearch() {
     setTimeout(function () { if (input.focus) input.focus({ preventScroll: true }); }, 150);
   }
   function close() {
-    inner.classList.remove('search-mode');
+    /* красивое закрытие: класс search-closing — строка гаснет, кнопка
+       летит обратно; через 260ms снимаем search-mode полностью.
+       БЕЗ мгновенного remove — иначе display:none обрубал анимацию
+       и на Android кнопки «не возвращались» из залипшего forwards. */
+    inner.classList.add('search-closing');
     btn.setAttribute('aria-label', 'Открыть поиск');
     btn.setAttribute('aria-expanded', 'false');
     if (input.blur) input.blur();
     input.value = '';
     var box = document.getElementById('search-results');
     if (box) box.hidden = true;
-    setTimeout(function () { if (btn.focus) btn.focus({ preventScroll: true }); }, 50);
+    setTimeout(function () {
+      inner.classList.remove('search-mode', 'search-closing');
+      if (btn.focus) btn.focus({ preventScroll: true });
+    }, 260);
   }
 
   btn.addEventListener('click', function () {

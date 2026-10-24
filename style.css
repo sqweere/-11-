@@ -1290,24 +1290,50 @@ code {
     to   { opacity: 1; transform: none; }
   }
 
-  /* ③ остальные: гаснут и уходят из потока (после fade) */
+  /* ③ остальные: гаснут (fade+scale). БЕЗ display:none/forwards —
+     «forwards» залипал на Android: кнопки пропадали навсегда и не
+     нажимались. Строка абсолютная — место освобождать не нужно. */
   .header-inner > .brand,
   .header-inner > .header-progress,
-  .header-inner > .header-actions,
   .header-inner > .header-actions > :not(.search-open-btn) {
     transition: opacity .2s ease, transform .28s var(--ease, cubic-bezier(.22,1,.36,1));
   }
   .header-inner.search-mode .brand,
   .header-inner.search-mode .header-progress,
-  .header-inner.search-mode .header-actions,
   .header-inner.search-mode .header-actions > :not(.search-open-btn) {
     opacity: 0;
     transform: scale(.88);
-    pointer-events: none;
-    animation: m-collapse .01s linear .24s forwards;
+    pointer-events: none;              /* снятие search-mode вернёт клики */
   }
   .header-inner.search-mode .header-actions .search-open-btn { opacity: 1 !important; transform: translateX(-46px) !important; }
-  @keyframes m-collapse { to { display: none; } }
+
+  /* — ЗАКРЫТИЕ (search-closing): строка гаснет к кнопке, лупа
+     возвращается из угла, кнопки проявляются — 0.26s — */
+  .header-inner.search-closing .search-wrap {
+    animation: so-line-out .26s var(--ease, cubic-bezier(.4,0,.7,1)) forwards;
+  }
+  @keyframes so-line-out {
+    from { opacity: 1; transform: none; }
+    to   { opacity: 0; transform: translateX(-16px) scaleX(.35); transform-origin: left center; }
+  }
+  .header-inner.search-closing .search-open-btn {
+    transform: translateX(0) !important;
+    border-radius: 11px !important;
+    background: var(--glass-bg-soft) !important;
+    transition: transform .3s var(--ease, cubic-bezier(.22,1,.36,1)),
+                border-radius .28s var(--ease, cubic-bezier(.34,1.2,.5,1)),
+                background .2s ease;
+  }
+  .header-inner.search-closing .search-open-btn .so-lens { opacity: 1; transform: translate(-50%,-50%); }
+  .header-inner.search-closing .search-open-btn .so-x { opacity: 0; transform: translate(-50%,-50%) rotate(90deg) scale(.4); }
+  .header-inner.search-closing .brand,
+  .header-inner.search-closing .header-progress,
+  .header-inner.search-closing .header-actions > :not(.search-open-btn),
+  .header-inner.search-closing #menu-toggle {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
 
   /* результаты — под шапкой во всю ширину окна */
   .header-inner.search-mode .search-results {
