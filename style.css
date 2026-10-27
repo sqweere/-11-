@@ -643,6 +643,29 @@ code {
 
 .header-actions { display: flex; gap: 7px; }
 
+/* Переключатель учебников (11/10 класс) — стеклянный чип в шапке */
+.book-switch {
+  display: inline-flex; align-items: center; gap: 5px;
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font: 700 0.78rem/1 inherit;
+  cursor: pointer;
+  transition: background .25s ease, border-color .25s ease, transform .18s ease;
+}
+.book-switch b { font-weight: 700; white-space: nowrap; }
+.book-switch svg { color: var(--muted); transition: transform .25s var(--ease, ease); }
+.book-switch:hover { background: var(--glass-bg); border-color: var(--brand-2); }
+.book-switch:hover svg { transform: translateY(1px); }
+.book-switch:active { transform: scale(0.96); }
+@media (max-width: 800px) {
+  .book-switch { padding: 5px 10px; font-size: 0.7rem; }
+  .brand-text { display: none !important; }   /* чип заменяет подпись класса */
+}
+
 .icon-btn {
   width: 38px; height: 38px; flex: 0 0 auto;      /* компакт (было 42) */
   display: grid; place-items: center;

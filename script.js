@@ -80,25 +80,83 @@ var K = {                       // ключи состояния (единый �
   livebg:   'obsh11:livebg'      // true — живой фон включён (ф. 40)
 };
 
-/* ---------- 2. МОДЕЛЬ ---------- */
+/* ---------- 2. МОДЕЛЬ (мульти-учебники) ---------- */
 
+/* Все книги из data.js: SITE_DATA = { books: [{id, meta, sections}, ...] }.
+   Старый формат {meta, sections} — обёртывается в одну книгу (book11). */
+var BOOKS = (SITE_DATA.books && SITE_DATA.books.length)
+  ? SITE_DATA.books
+  : (SITE_DATA.sections ? [{ id: 'book11', meta: SITE_DATA.meta, sections: SITE_DATA.sections }] : []);
+
+/* Активная книга (id в localStorage; дефолт — первая) */
+var K_book = 'obsh11:book';
+function activeBook() {
+  var id = store.get(K_book, BOOKS.length ? BOOKS[0].id : 'book11');
+  for (var i = 0; i < BOOKS.length; i++) if (BOOKS[i].id === id) return BOOKS[i];
+  return BOOKS.length ? BOOKS[0] : null;
+}
+function bookMeta() {
+  var b = activeBook();
+  return (b && b.meta) || { siteTitle: 'Обществоведение', siteSubtitle: '', heroText: '', grade: '' };
+}
+function setBook(id) {
+  var found = false;
+  for (var i = 0; i < BOOKS.length; i++) if (BOOKS[i].id === id) found = true;
+  if (!found) return;
+  store.set(K_book, id);
+  buildParagraphs();               // пересобрать плоский список
+  document.title = bookMeta().siteTitle;
+  var sub = document.getElementById('brand-sub');
+  if (sub) sub.textContent = (bookMeta().grade || '') + ' · конспекты и уроки';
+  renderTOC();
+  updateHeaderProgress();
+  renderBookSwitch();              // обновить UI-переключатель
+  location.hash = '#/';            // на главную новой книги
+  toast('Учебник: ' + (bookMeta().grade || id));
+}
+
+/* Плоский список параграфов АКТИВНОЙ книги (весь код дальше работает с ним) */
 var PARAGRAPHS = [];
-(SITE_DATA.sections || []).forEach(function (section) {
-  (section.paragraphs || []).forEach(function (p) {
-    PARAGRAPHS.push({
-      id: p.id, num: p.num, title: p.title,
-      status: p.status || 'ready',
-      conspect: p.conspect || { intro: '', theses: [], terms: [], dates: [] },
-      detailed: p.detailed || [],
-      slides: p.slides || [],
-      test: p.test || [],
-      links: p.links || [],
-      timeline: p.timeline || [],        // ф. 5: доп. события [{when, what}]
-      model3d: p.model3d || null,        // ф. 39: {src:'assets/models/x.glb', caption}
-      sectionId: section.id, sectionTitle: section.title
+function buildParagraphs() {
+  PARAGRAPHS = [];
+  var b = activeBook();
+  if (!b) return;
+  (b.sections || []).forEach(function (section) {
+    (section.paragraphs || []).forEach(function (p) {
+      PARAGRAPHS.push({
+        id: p.id, num: p.num, title: p.title,
+        status: p.status || 'ready',
+        conspect: p.conspect || { intro: '', theses: [], terms: [], dates: [] },
+        detailed: p.detailed || [],
+        slides: p.slides || [],
+        test: p.test || [],
+        links: p.links || [],
+        timeline: p.timeline || [],        // ф. 5: доп. события [{when, what}]
+        model3d: p.model3d || null,        // ф. 39: {src:'assets/models/x.glb', caption}
+        sectionId: section.id, sectionTitle: section.title
+      });
     });
   });
-});
+}
+buildParagraphs();
+
+/* Совместимость: SITE_DATA.sections/meta → всегда АКТИВНАЯ книга.
+   Геттеры нужны при НОВОМ формате (books есть): старый код читает
+   SITE_DATA.sections — и получает параграфы текущего учебника.
+   Старый формат (одна книга) уже содержит sections — геттеры не нужны. */
+(function () {
+  if (!SITE_DATA.books) return;   // старый формат: ничего делать не надо
+  try {
+    Object.defineProperty(SITE_DATA, 'sections', {
+      get: function () { var b = activeBook(); return b ? b.sections : []; },
+      configurable: true
+    });
+    Object.defineProperty(SITE_DATA, 'meta', {
+      get: function () { return bookMeta(); },
+      configurable: true
+    });
+  } catch (e) { /* экстремально старые браузеры: PARAGRAPHS уже собран */ }
+})();
 
 function getParagraph(id) {
   for (var i = 0; i < PARAGRAPHS.length; i++) {
@@ -1978,6 +2036,35 @@ function initHeader() {
     var t = continueTarget();
     if (t) location.hash = '#/' + t.id;
   });
+  renderBookSwitch();
+}
+
+/* ---------- ПЕРЕКЛЮЧАТЕЛЬ УЧЕБНИКОВ ----------
+   Если в data.js больше одной книги — в шапке появляется чип «11 кл»/«10 кл»
+   (показывает активную; клик — циклично переключает). Одна книга — чип скрыт. */
+function renderBookSwitch() {
+  var host = $('#book-switch');
+  if (!host) return;
+  if (BOOKS.length < 2) { host.hidden = true; return; }
+  host.hidden = false;
+  var b = activeBook();
+  host.innerHTML = '<b>' + esc((b.meta && b.meta.grade) || b.id) + '</b>' +
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+  var names = BOOKS.map(function (x) { return (x.meta && x.meta.grade) || x.id; }).join(' / ');
+  host.title = 'Учебник: ' + ((b.meta && b.meta.grade) || b.id) + ' — клик переключает (' + names + ')';
+  host.setAttribute('aria-label', host.title);
+  host.setAttribute('aria-haspopup', 'true');
+}
+function initBookSwitch() {
+  var host = $('#book-switch');
+  if (!host) return;
+  host.addEventListener('click', function () {
+    var cur = activeBook();
+    var idx = BOOKS.indexOf(cur);
+    var next = BOOKS[(idx + 1) % BOOKS.length];
+    setBook(next.id);
+  });
+  renderBookSwitch();
 }
 
 /* ---------- Шапка: 3 режима + уезд/возврат (аккумулятор против лага) ----
@@ -3156,6 +3243,7 @@ function init() {
   initSidebar();
   initGlint();
   initHeader();
+  initBookSwitch();       // переключатель учебников (11/10 класс)
   initHeaderHide();     // уезжающая шапка (скролл-логика)
   initGlobalSearch();    // ф. 43: глобальный поиск (заменяет initSearch)
   initMobileSearch();    // мобильная лупа → expand-поиск на всю шапку

@@ -88,8 +88,14 @@
       </button>
 
       <a href="#/" class="brand" aria-label="На главную">
-        <span class="brand-text"><strong>Обществоведение</strong><small>11 класс · конспекты и уроки</small></span>
+        <span class="brand-text"><strong>Обществоведение</strong><small id="brand-sub">11 класс · конспекты и уроки</small></span>
       </a>
+
+      <!-- ПЕРЕКЛЮЧАТЕЛЬ УЧЕБНИКОВ (11/10 класс; скрывается, если книга одна) -->
+      <button type="button" class="book-switch glass" id="book-switch" hidden>
+        <b>11 класс</b>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
 
       <!-- ПОИСК по конспектам (клавиша /) — компакт на десктопе.
            На мобильных кнопка-лупа — КРАЙНЯЯ СПРАВА (после всех кнопок);
